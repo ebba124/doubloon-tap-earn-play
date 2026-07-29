@@ -43,6 +43,36 @@ function formatNum(n: number) {
 
 type Tab = "earn" | "tasks" | "friends" | "boosts" | "wallet";
 
+function SplashLoader() {
+  return (
+    <div className="app-shell items-center justify-center flex text-[var(--muted-foreground)]">
+      <div className="coin-btn" style={{ width: 120, fontSize: "2.5rem", opacity: 0.6 }}>
+        D
+      </div>
+    </div>
+  );
+}
+
+function AuthError({ message }: { message: string }) {
+  return (
+    <div className="app-shell items-center justify-center flex flex-col gap-3 p-6 text-center">
+      <div className="text-4xl">🪙</div>
+      <h1 className="text-xl font-bold">Open inside Telegram</h1>
+      <p className="text-sm text-[var(--muted-foreground)]">
+        Doubloon Tap is a Telegram Mini App. Launch it from{" "}
+        <a
+          href="https://t.me/DoubloonTapBot"
+          className="text-[var(--gold)] underline"
+        >
+          @DoubloonTapBot
+        </a>{" "}
+        to play.
+      </p>
+      <p className="text-xs text-[var(--destructive)] mt-2">{message}</p>
+    </div>
+  );
+}
+
 function DoubloonTap() {
   const [tab, setTab] = useState<Tab>("earn");
   const [ready, setReady] = useState(false);
