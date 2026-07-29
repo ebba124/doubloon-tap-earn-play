@@ -157,10 +157,11 @@ export const adminSetEconomy = createServerFn({ method: "POST" })
     await svc.from("audit_log").insert({
       user_id: verified.user.id,
       action: "economy_update",
-      meta: { key: data.key, value: data.value },
+      meta: { key: data.key, value: data.value } as never,
     });
     return { ok: true };
   });
+
 
 export const adminListRoles = createServerFn({ method: "POST" })
   .inputValidator((d: { initData: string }) => z.object({ initData: z.string() }).parse(d))
