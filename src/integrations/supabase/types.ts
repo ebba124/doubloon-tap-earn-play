@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_roles: {
+        Row: {
+          created_at: string
+          created_by: number | null
+          role: Database["public"]["Enums"]["admin_role"]
+          telegram_id: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: number | null
+          role: Database["public"]["Enums"]["admin_role"]
+          telegram_id: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: number | null
+          role?: Database["public"]["Enums"]["admin_role"]
+          telegram_id?: number
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -38,6 +59,27 @@ export type Database = {
           id?: number
           meta?: Json | null
           user_id?: number | null
+        }
+        Relationships: []
+      }
+      economy_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: number | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: number | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: number | null
+          value?: Json
         }
         Relationships: []
       }
@@ -266,7 +308,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      admin_role: "superadmin" | "withdraw_reviewer" | "economy_editor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -393,6 +435,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      admin_role: ["superadmin", "withdraw_reviewer", "economy_editor"],
+    },
   },
 } as const
