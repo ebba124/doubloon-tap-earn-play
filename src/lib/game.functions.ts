@@ -3,28 +3,16 @@ import { z } from "zod";
 
 const initDataSchema = z.object({ initData: z.string().min(1) });
 
-async function verify(initData: string) {
-  const { verifyTelegramInitData, devBypassUser } = await import("./telegram-verify.server");
-  const bypass = devBypassUser(initData);
-  if (bypass) return bypass;
-  return verifyTelegramInitData(initData, process.env.TELEGRAM_BOT_TOKEN ?? "");
-}
-
-async function db() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
-}
-
 // --- getSession -------------------------------------------------------------
 
 export const getSession = createServerFn({ method: "POST" })
   .inputValidator((d: { initData: string }) => initDataSchema.parse(d))
   .handler(async ({ data }) => {
-    const v = await verify(data.initData);
-    const svc = await db();
+    const { verifyInitData, db, incBalance, regenEnergy } = await import("./game.server");
     const eco = await import("./economy.server");
+    const v = await verifyInitData(data.initData);
+    const svc = db();
 
-    // Upsert user
     const { data: existing } = await svc.from("users").select("*").eq("id", v.user.id).maybeSingle();
     let user = existing;
     if (!user) {
@@ -42,7 +30,6 @@ export const getSession = createServerFn({ method: "POST" })
         .single();
       user = insertRes.data!;
 
-      // Check pending referral (from /start ref_<id>)
       let referrerId: number | null = null;
       if (v.start_param?.startsWith("ref_")) {
         const rid = Number(v.start_param.slice(4));
@@ -68,15 +55,6 @@ export const getSession = createServerFn({ method: "POST" })
             referrer_id: referrerId,
             referred_id: v.user.id,
           });
-          await svc.rpc; // noop
-          // Credit referrer + welcome bonus for invitee
-          await svc
-            .from("users")
-            .update({
-              balance: (undefined as unknown as number),
-            })
-            .eq("id", 0); // placeholder replaced below via direct SQL
-          // Use raw increments
           await svc.from("audit_log").insert([
             {
               user_id: referrerId,
@@ -93,8 +71,6 @@ export const getSession = createServerFn({ method: "POST" })
           ]);
           await incBalance(referrerId, eco.REFERRAL_REWARD_PER_FRIEND);
           await incBalance(v.user.id, eco.REFERRAL_REWARD_FOR_INVITEE);
-
-          // Check milestone
           const { count } = await svc
             .from("referrals")
             .select("*", { count: "exact", head: true })
@@ -115,10 +91,8 @@ export const getSession = createServerFn({ method: "POST" })
         }
         await svc.from("pending_referrals").delete().eq("referred_id", v.user.id);
       }
-      const refresh = await svc.from("users").select("*").eq("id", v.user.id).single();
-      user = refresh.data!;
+      user = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
     } else {
-      // Update profile fields if changed
       await svc
         .from("users")
         .update({
@@ -131,16 +105,13 @@ export const getSession = createServerFn({ method: "POST" })
         .eq("id", v.user.id);
     }
 
-    // Regenerate energy lazily
     user = await regenEnergy(v.user.id);
 
-    // Tasks done
     const { data: tasksDone } = await svc
       .from("tasks_done")
       .select("task_id")
       .eq("user_id", v.user.id);
 
-    // Referrals list
     const { data: myRefs } = await svc
       .from("referrals")
       .select("referred_id, created_at")
@@ -157,7 +128,6 @@ export const getSession = createServerFn({ method: "POST" })
         ).data ?? []
       : [];
 
-    // Withdrawals
     const { data: withdrawals } = await svc
       .from("withdrawals")
       .select("id, amount_dbl, amount_usdt, method, address, status, created_at")
@@ -207,39 +177,6 @@ export const getSession = createServerFn({ method: "POST" })
     };
   });
 
-async function incBalance(userId: number, delta: number) {
-  const svc = await db();
-  const { data } = await svc.from("users").select("balance").eq("id", userId).single();
-  if (!data) return;
-  await svc
-    .from("users")
-    .update({ balance: Number(data.balance) + delta })
-    .eq("id", userId);
-}
-
-async function regenEnergy(userId: number) {
-  const svc = await db();
-  const { data: u } = await svc.from("users").select("*").eq("id", userId).single();
-  if (!u) throw new Error("User not found");
-  const now = new Date();
-  const last = new Date(u.last_energy_update);
-  const elapsedSec = Math.max(0, (now.getTime() - last.getTime()) / 1000);
-  const regen = elapsedSec * Number(u.energy_regen_per_sec);
-  const newEnergy = Math.min(u.energy_max, u.energy + regen);
-  if (newEnergy !== u.energy) {
-    await svc
-      .from("users")
-      .update({
-        energy: Math.floor(newEnergy),
-        last_energy_update: now.toISOString(),
-      })
-      .eq("id", userId);
-    u.energy = Math.floor(newEnergy);
-    u.last_energy_update = now.toISOString();
-  }
-  return u;
-}
-
 // --- tap --------------------------------------------------------------------
 
 export const tap = createServerFn({ method: "POST" })
@@ -253,11 +190,11 @@ export const tap = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const v = await verify(data.initData);
-    const svc = await db();
+    const { verifyInitData, db, regenEnergy } = await import("./game.server");
     const eco = await import("./economy.server");
+    const v = await verifyInitData(data.initData);
+    const svc = db();
 
-    // Idempotency
     const idKey = `tap:${v.user.id}:${data.nonce}`;
     const { error: idErr } = await svc
       .from("idempotency")
@@ -268,8 +205,6 @@ export const tap = createServerFn({ method: "POST" })
     }
 
     const u = await regenEnergy(v.user.id);
-
-    // Anti-bot rate cap
     const { data: recent } = await svc
       .from("audit_log")
       .select("delta, created_at")
@@ -310,18 +245,17 @@ export const tap = createServerFn({ method: "POST" })
 export const claimDaily = createServerFn({ method: "POST" })
   .inputValidator((d: { initData: string }) => initDataSchema.parse(d))
   .handler(async ({ data }) => {
-    const v = await verify(data.initData);
-    const svc = await db();
+    const { verifyInitData, db, regenEnergy } = await import("./game.server");
     const eco = await import("./economy.server");
+    const v = await verifyInitData(data.initData);
+    const svc = db();
     const u = await regenEnergy(v.user.id);
 
     const now = new Date();
     const last = u.last_daily_claim ? new Date(u.last_daily_claim) : null;
     if (last) {
       const hours = (now.getTime() - last.getTime()) / (1000 * 60 * 60);
-      if (hours < 20) {
-        return { user: u, claimed: 0, reason: "cooldown" as const };
-      }
+      if (hours < 20) return { user: u, claimed: 0, reason: "cooldown" as const, day: u.streak_day };
     }
     let day = Number(u.streak_day ?? 0);
     if (last && (now.getTime() - last.getTime()) / (1000 * 60 * 60) > 48) day = 0;
@@ -359,9 +293,10 @@ export const buyBoost = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const v = await verify(data.initData);
-    const svc = await db();
+    const { verifyInitData, db } = await import("./game.server");
     const eco = await import("./economy.server");
+    const v = await verifyInitData(data.initData);
+    const svc = db();
     const boost = eco.BOOSTS.find((b) => b.id === data.boostId);
     if (!boost) throw new Error("Unknown boost");
 
@@ -371,7 +306,7 @@ export const buyBoost = createServerFn({ method: "POST" })
       .insert({ key: idKey, user_id: v.user.id });
     if (idErr) {
       const u = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
-      return { user: u, duplicate: true };
+      return { user: u, duplicate: true, cost: 0 };
     }
 
     const u = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
@@ -403,13 +338,13 @@ export const completeTask = createServerFn({ method: "POST" })
     z.object({ initData: z.string().min(1), taskId: z.string() }).parse(d),
   )
   .handler(async ({ data }) => {
-    const v = await verify(data.initData);
-    const svc = await db();
+    const { verifyInitData, db, incBalance } = await import("./game.server");
     const eco = await import("./economy.server");
+    const v = await verifyInitData(data.initData);
+    const svc = db();
     const task = eco.TASKS.find((t) => t.id === data.taskId);
     if (!task) throw new Error("Unknown task");
 
-    // Special: invite_1 verified by actual referral count
     if (task.id === "invite_1") {
       const { count } = await svc
         .from("referrals")
@@ -450,9 +385,10 @@ export const requestWithdraw = createServerFn({ method: "POST" })
         .parse(d),
   )
   .handler(async ({ data }) => {
-    const v = await verify(data.initData);
-    const svc = await db();
+    const { verifyInitData, db } = await import("./game.server");
     const eco = await import("./economy.server");
+    const v = await verifyInitData(data.initData);
+    const svc = db();
     const method = eco.WITHDRAW_METHODS[data.method];
     if (!method) throw new Error("Unknown payout method");
     if (!method.addressRegex.test(data.address.trim()))
@@ -489,10 +425,11 @@ export const requestWithdraw = createServerFn({ method: "POST" })
     return { ok: true, withdrawal: wd };
   });
 
-// --- leaderboard (public projection) ----------------------------------------
+// --- leaderboard ------------------------------------------------------------
 
 export const getLeaderboard = createServerFn({ method: "GET" }).handler(async () => {
-  const svc = await db();
+  const { db } = await import("./game.server");
+  const svc = db();
   const { data } = await svc
     .from("users")
     .select("id, username, first_name, photo_url, balance, total_taps")
