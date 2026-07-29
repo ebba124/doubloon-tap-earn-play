@@ -61,12 +61,16 @@ function DoubloonTap() {
 function App({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   const initData = getInitData();
   const getSessionFn = useServerFn(getSession);
-  const { data } = useSuspenseQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["session"],
     queryFn: () => getSessionFn({ data: { initData } }),
     refetchOnWindowFocus: false,
     staleTime: 30_000,
+    retry: false,
   });
+
+  if (isLoading) return <SplashLoader />;
+  if (error || !data) return <AuthError message={(error as Error)?.message ?? "Session failed"} />;
 
   return (
     <div className="app-shell">
