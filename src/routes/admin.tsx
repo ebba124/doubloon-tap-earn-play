@@ -18,17 +18,12 @@ export const Route = createFileRoute("/admin")({
 
 function AdminPage() {
   const [ready, setReady] = useState(false);
-  useEffect(() => {
-    getWebApp()?.ready();
-    setReady(true);
-  }, []);
-  if (!ready) return null;
-
   const overviewFn = useServerFn(adminOverview);
   const reviewFn = useServerFn(adminReviewWithdrawal);
   const q = useQuery({
     queryKey: ["admin"],
     queryFn: () => overviewFn({ data: { initData: getInitData() } }),
+    enabled: ready,
   });
   const mut = useMutation({
     mutationFn: (v: { id: number; action: "approve" | "reject" | "paid" }) =>
@@ -36,7 +31,12 @@ function AdminPage() {
     onSuccess: () => q.refetch(),
   });
 
-  if (q.isLoading) return <div className="p-4">Loading…</div>;
+  useEffect(() => {
+    getWebApp()?.ready();
+    setReady(true);
+  }, []);
+
+  if (!ready || q.isLoading) return <div className="p-4">Loading…</div>;
   if (q.error)
     return (
       <div className="p-4">
