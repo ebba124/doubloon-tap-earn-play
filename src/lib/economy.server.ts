@@ -1,7 +1,7 @@
 // Server-authoritative economy config. Client cannot influence these values.
 
-export const DBL_PER_USDT = 100_000; // 100,000 DBL = 1 USDT
-export const MIN_WITHDRAW_DBL = 500_000; // 5 USDT
+export const DBL_PER_USDT = 1_000; // 10,000 DBL = 10 USDT
+export const MIN_WITHDRAW_DBL = 10_000; // 10 USDT
 export const MAX_TAPS_PER_REQUEST = 50;
 export const MAX_TAPS_PER_SECOND = 20; // anti-bot rate cap per user
 
@@ -88,6 +88,14 @@ export const TASKS: TaskDef[] = [
     name: "Join Doubloon Tap Channel",
     description: "Follow the announcements channel.",
     url: "https://t.me/Doubloontap",
+    reward: 5_000,
+    kind: "channel",
+  },
+  {
+    id: "join_rewards",
+    name: "Join Doubloon Rewards",
+    description: "Join the rewards channel for drops and bonuses.",
+    url: "https://t.me/Doubloonreward",
     reward: 5_000,
     kind: "channel",
   },
