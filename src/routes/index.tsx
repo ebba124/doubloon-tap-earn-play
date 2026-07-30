@@ -665,9 +665,9 @@ function TabBar({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "earn", label: "Earn", icon: "🪙" },
     { id: "tasks", label: "Tasks", icon: "✅" },
-    { id: "friends", label: "Friends", icon: "👥" },
-    { id: "boosts", label: "Boosts", icon: "⚡" },
-    { id: "wallet", label: "Wallet", icon: "💰" },
+    { id: "friends", label: "Friends", icon: "😺" },
+    { id: "boosts", label: "Boosts", icon: "🤖" },
+    { id: "wallet", label: "Cashier", icon: "🪙" },
   ];
   return (
     <nav className="tabbar">
@@ -681,10 +681,12 @@ function TabBar({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
             setTab(t.id);
           }}
         >
-          <span style={{ fontSize: 20 }}>{t.icon}</span>
+          {t.id === "tasks" && <span className="tab-dot" />}
+          <span className="tab-icon">{t.icon}</span>
           <span>{t.label}</span>
         </button>
       ))}
     </nav>
   );
 }
+
