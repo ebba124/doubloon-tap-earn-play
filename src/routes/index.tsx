@@ -603,25 +603,24 @@ function WalletTab({ session }: { session: any }) {
         </button>
       </div>
 
-      <h3 className="font-bold mt-2">History</h3>
-      {session.withdrawals.length === 0 ? (
-        <div className="text-sm text-[var(--muted-foreground)]">
-          No withdrawals yet.
-        </div>
-      ) : (
-        session.withdrawals.map((w: any) => (
-          <div key={w.id} className="list-row">
-            <div>
-              <div className="font-semibold">
-                {formatNum(Number(w.amount_dbl))} DBL · {Number(w.amount_usdt).toFixed(2)} USDT
+      {session.withdrawals.length > 0 && (
+        <>
+          <h3 className="font-bold mt-2">History</h3>
+          {session.withdrawals.map((w: any) => (
+            <div key={w.id} className="list-row">
+              <div>
+                <div className="font-semibold">
+                  {formatNum(Number(w.amount_dbl))} DBL ·{" "}
+                  {Number(w.amount_usdt).toFixed(2)} USDT
+                </div>
+                <div className="text-xs text-[var(--muted-foreground)]">
+                  {w.method} · {new Date(w.created_at).toLocaleDateString()}
+                </div>
               </div>
-              <div className="text-xs text-[var(--muted-foreground)]">
-                {w.method} · {new Date(w.created_at).toLocaleDateString()}
-              </div>
+              <span className="badge">{w.status}</span>
             </div>
-            <span className="badge">{w.status}</span>
-          </div>
-        ))
+          ))}
+        </>
       )}
 
       <Leaderboard />
