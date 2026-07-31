@@ -57,14 +57,17 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             process.env.PUBLIC_APP_URL ?? "https://doubloon-tap-quest.lovable.app";
           const name = from.username ? `@${from.username}` : (from.first_name ?? "there");
           const welcome = [
-            `Hey, ${name}! Welcome to <b>Doubloon Tap</b>!`,
-            `Tap on the coin and see your balance rise.`,
+            `👋 Hey, ${name}! Welcome to <b>DoubloonTap</b>!`,
             ``,
-            `<b>Doubloon Tap</b> is a tap-to-earn game where you mine DBL by tapping, completing quests and boosting your crew. The majority of DBL distribution happens right here among the players.`,
+            `💰 Tap the coin, complete simple tasks, and watch your Doubloon balance grow.`,
             ``,
-            `Do you have friends, relatives, or co-workers?`,
-            `Bring them all into the game.`,
-            `More buddies, more coins.`,
+            `DoubloonTap is a fun rewards platform where you can earn DBL by tapping daily, completing quests, joining our community, and inviting friends. Stay active to maximise your rewards and climb the leaderboard.`,
+            ``,
+            `🎁 The more you participate, the more you earn!`,
+            `Have friends, family, or teammates?`,
+            `Invite them to join DoubloonTap and grow your rewards together.`,
+            ``,
+            `More friends. More rewards. More Doubloons. 🚀`,
           ].join("\n");
           await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: "POST",
@@ -75,15 +78,15 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               parse_mode: "HTML",
               reply_markup: {
                 inline_keyboard: [
-                  [{ text: "👋 Start now!", web_app: { url: webAppUrl } }],
+                  [{ text: "🎮 Play DoubloonTap", web_app: { url: webAppUrl } }],
                   [{ text: "💪🪙 Join community", url: "https://t.me/Doublooncommunity" }],
                   [{ text: "📢 Announcements channel", url: "https://t.me/Doubloontap" }],
                   [{ text: "🎁 Rewards channel", url: "https://t.me/Doubloonreward" }],
-                  [{ text: "📄 Help", url: "https://t.me/Doubloontap" }],
                 ],
               },
             }),
           }).catch(() => {});
+
         }
 
 
