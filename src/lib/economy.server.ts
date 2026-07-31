@@ -148,3 +148,10 @@ export const WITHDRAW_METHODS: Record<
 };
 
 export const BOT_USERNAME = "DoubloonTapBot";
+
+// Channels every user must be subscribed to before claiming any reward.
+export const REQUIRED_CHANNELS: { chat: string; label: string; url: string }[] = [
+  { chat: "@Doublooncommunity", label: "Doubloon Community", url: "https://t.me/Doublooncommunity" },
+  { chat: "@Doubloontap", label: "Doubloon Tap Channel", url: "https://t.me/Doubloontap" },
+  { chat: "@Doubloonreward", label: "Doubloon Rewards", url: "https://t.me/Doubloonreward" },
+];
