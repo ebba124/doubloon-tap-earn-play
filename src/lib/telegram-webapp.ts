@@ -49,6 +49,14 @@ export function getWebApp(): TgWebApp | null {
 export function getInitData(): string {
   const tg = getWebApp();
   if (tg?.initData) return tg.initData;
+  // Fallback: Telegram also passes launch params in the URL hash/query
+  // (tgWebAppData) — useful if the SDK script hasn't populated yet.
+  if (typeof window !== "undefined") {
+    for (const src of [window.location.hash.replace(/^#/, ""), window.location.search.replace(/^\?/, "")]) {
+      const d = new URLSearchParams(src).get("tgWebAppData");
+      if (d) return d;
+    }
+  }
   // Dev fallback: allow ?dev_user=<id> in URL
   if (typeof window !== "undefined") {
     const url = new URL(window.location.href);
