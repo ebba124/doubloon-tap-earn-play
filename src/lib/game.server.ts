@@ -47,3 +47,33 @@ export async function regenEnergy(userId: number) {
   }
   return u;
 }
+
+const JOINED = ["creator", "administrator", "member", "restricted"];
+
+export async function isChannelMember(chat: string, userId: number): Promise<boolean> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return false;
+  const res = await fetch(`https://api.telegram.org/bot${token}/getChatMember`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ chat_id: chat, user_id: userId }),
+  }).catch(() => null);
+  const json = (await res?.json().catch(() => null)) as
+    | { ok?: boolean; result?: { status?: string }; description?: string }
+    | null;
+  if (!json?.ok) {
+    console.error("getChatMember failed", chat, json?.description);
+    return false;
+  }
+  return JOINED.includes(json.result?.status ?? "left");
+}
+
+/** Checks all mandatory channels. Returns the ones the user has not joined. */
+export async function checkRequiredChannels(userId: number) {
+  const { REQUIRED_CHANNELS } = await import("./economy.server");
+  const results = await Promise.all(
+    REQUIRED_CHANNELS.map(async (c) => ({ c, ok: await isChannelMember(c.chat, userId) })),
+  );
+  const missing = results.filter((r) => !r.ok).map((r) => r.c);
+  return { ok: missing.length === 0, missing };
+}

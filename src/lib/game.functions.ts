@@ -8,7 +8,8 @@ const initDataSchema = z.object({ initData: z.string().min(1) });
 export const getSession = createServerFn({ method: "POST" })
   .inputValidator((d: { initData: string }) => initDataSchema.parse(d))
   .handler(async ({ data }) => {
-    const { verifyInitData, db, incBalance, regenEnergy } = await import("./game.server");
+    const { verifyInitData, db, incBalance, regenEnergy, checkRequiredChannels } =
+      await import("./game.server");
     const eco = await import("./economy.server");
     const v = await verifyInitData(data.initData);
     const svc = db();
@@ -135,8 +136,11 @@ export const getSession = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .limit(20);
 
+    const membership = await checkRequiredChannels(v.user.id);
+
     return {
       user,
+      membership,
       tasks: eco.TASKS,
       tasksDone: (tasksDone ?? []).map((t) => t.task_id),
       boosts: eco.BOOSTS.map((b) => ({
@@ -245,10 +249,16 @@ export const tap = createServerFn({ method: "POST" })
 export const claimDaily = createServerFn({ method: "POST" })
   .inputValidator((d: { initData: string }) => initDataSchema.parse(d))
   .handler(async ({ data }) => {
-    const { verifyInitData, db, regenEnergy } = await import("./game.server");
+    const { verifyInitData, db, regenEnergy, checkRequiredChannels } =
+      await import("./game.server");
     const eco = await import("./economy.server");
     const v = await verifyInitData(data.initData);
     const svc = db();
+    const gate = await checkRequiredChannels(v.user.id);
+    if (!gate.ok)
+      throw new Error(
+        `Join our channels first: ${gate.missing.map((c) => c.label).join(", ")}`,
+      );
     const u = await regenEnergy(v.user.id);
 
     const now = new Date();
@@ -338,12 +348,19 @@ export const completeTask = createServerFn({ method: "POST" })
     z.object({ initData: z.string().min(1), taskId: z.string() }).parse(d),
   )
   .handler(async ({ data }) => {
-    const { verifyInitData, db, incBalance } = await import("./game.server");
+    const { verifyInitData, db, incBalance, checkRequiredChannels } =
+      await import("./game.server");
     const eco = await import("./economy.server");
     const v = await verifyInitData(data.initData);
     const svc = db();
     const task = eco.TASKS.find((t) => t.id === data.taskId);
     if (!task) throw new Error("Unknown task");
+
+    const gate = await checkRequiredChannels(v.user.id);
+    if (!gate.ok)
+      throw new Error(
+        `Join our channels first: ${gate.missing.map((c) => c.label).join(", ")}`,
+      );
 
     if (task.id === "invite_1") {
       const { count } = await svc
