@@ -68,7 +68,7 @@ function AuthError({ message }: { message: string }) {
         </a>{" "}
         to play.
       </p>
-      <p className="text-xs text-[var(--destructive)] mt-2">{message}</p>
+      <p className="text-xs text-[var(--muted-foreground)] mt-2 opacity-60">{message}</p>
     </div>
   );
 }
@@ -78,10 +78,21 @@ function DoubloonTap() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const tg = getWebApp();
-    tg?.ready();
-    tg?.expand();
-    setReady(true);
+    let tries = 0;
+    const boot = () => {
+      const tg = getWebApp();
+      tg?.ready();
+      tg?.expand();
+      // The Telegram SDK script may still be loading — wait briefly for
+      // initData instead of failing the session request immediately.
+      if (!getInitData() && tries < 20 && !tg?.initData) {
+        tries += 1;
+        setTimeout(boot, 150);
+        return;
+      }
+      setReady(true);
+    };
+    boot();
   }, []);
 
   if (!ready) return null;
@@ -100,7 +111,16 @@ function App({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   });
 
   if (isLoading) return <SplashLoader />;
-  if (error || !data) return <AuthError message={(error as Error)?.message ?? "Session failed"} />;
+  if (error || !data)
+    return (
+      <AuthError
+        message={
+          !initData
+            ? "No Telegram session detected."
+            : ((error as Error)?.message ?? "Session failed")
+        }
+      />
+    );
 
   return (
     <div className="app-shell">
