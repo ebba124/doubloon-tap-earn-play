@@ -26,9 +26,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         const text: string | undefined = msg?.text;
         const from = msg?.from;
 
-        if (from?.id && typeof text === "string" && text.startsWith("/start")) {
+        if (from?.id && typeof text === "string") {
+          const isStart = text.trim().startsWith("/start");
           const parts = text.trim().split(/\s+/);
-          const payload = parts[1] ?? "";
+          const payload = isStart ? (parts[1] ?? "") : "";
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           // Register a pending referral if payload is ref_<id>
           if (payload.startsWith("ref_")) {

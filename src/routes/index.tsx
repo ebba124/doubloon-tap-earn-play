@@ -301,6 +301,36 @@ function EarnTab({ session }: { session: any }) {
   );
 }
 
+function ChannelGate({ session }: { session: any }) {
+  const qc = useQueryClient();
+  if (session.membership?.ok !== false) return null;
+  return (
+    <div className="px-4">
+      <div className="list-row flex-col items-stretch gap-2">
+        <div className="font-bold">🔒 Join our channels to unlock rewards</div>
+        <div className="text-xs text-[var(--muted-foreground)]">
+          Subscription is required for every user before claiming any reward.
+        </div>
+        {session.membership.missing.map((c: any) => (
+          <button
+            key={c.chat}
+            className="ghost-btn"
+            onClick={() => getWebApp()?.openTelegramLink?.(c.url)}
+          >
+            Join {c.label}
+          </button>
+        ))}
+        <button
+          className="primary-btn"
+          onClick={() => qc.invalidateQueries({ queryKey: ["session"] })}
+        >
+          I&apos;ve joined — check again
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TasksTab({ session }: { session: any }) {
   const qc = useQueryClient();
   const completeFn = useServerFn(completeTask);
@@ -314,6 +344,7 @@ function TasksTab({ session }: { session: any }) {
   return (
     <div className="px-4 flex flex-col gap-3">
       <h2 className="text-xl font-bold">Tasks</h2>
+      <ChannelGate session={session} />
       {session.tasks.map((t: any) => {
         const done = session.tasksDone.includes(t.id);
         return (
