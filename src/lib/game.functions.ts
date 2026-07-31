@@ -353,6 +353,28 @@ export const completeTask = createServerFn({ method: "POST" })
       if ((count ?? 0) < 1) throw new Error("Invite a friend first");
     }
 
+    if (task.kind === "channel" && task.chat) {
+      const token = process.env.TELEGRAM_BOT_TOKEN;
+      if (!token) throw new Error("Verification unavailable, try again later");
+      const res = await fetch(`https://api.telegram.org/bot${token}/getChatMember`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chat_id: task.chat, user_id: v.user.id }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { ok?: boolean; result?: { status?: string }; description?: string }
+        | null;
+      if (!json?.ok) {
+        console.error("getChatMember failed", task.chat, json?.description);
+        throw new Error("Could not verify your subscription. Try again in a moment.");
+      }
+      const status = json.result?.status ?? "left";
+      if (!["creator", "administrator", "member", "restricted"].includes(status)) {
+        throw new Error("Join the channel first, then claim.");
+      }
+    }
+
+
     const { error: dupErr } = await svc.from("tasks_done").insert({
       user_id: v.user.id,
       task_id: task.id,

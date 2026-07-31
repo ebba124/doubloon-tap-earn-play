@@ -72,6 +72,8 @@ export interface TaskDef {
   url: string;
   reward: number;
   kind: "channel" | "external";
+  /** Telegram chat @username — membership is verified server-side before payout. */
+  chat?: string;
 }
 
 export const TASKS: TaskDef[] = [
@@ -82,6 +84,7 @@ export const TASKS: TaskDef[] = [
     url: "https://t.me/Doublooncommunity",
     reward: 5_000,
     kind: "channel",
+    chat: "@Doublooncommunity",
   },
   {
     id: "join_channel",
@@ -90,6 +93,7 @@ export const TASKS: TaskDef[] = [
     url: "https://t.me/Doubloontap",
     reward: 5_000,
     kind: "channel",
+    chat: "@Doubloontap",
   },
   {
     id: "join_rewards",
@@ -98,6 +102,7 @@ export const TASKS: TaskDef[] = [
     url: "https://t.me/Doubloonreward",
     reward: 5_000,
     kind: "channel",
+    chat: "@Doubloonreward",
   },
   {
     id: "invite_1",
