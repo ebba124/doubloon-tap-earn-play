@@ -68,12 +68,17 @@ export async function isChannelMember(chat: string, userId: number): Promise<boo
   return JOINED.includes(json.result?.status ?? "left");
 }
 
-/** Checks all mandatory channels. Returns the ones the user has not joined. */
+/** Checks all mandatory channels. Returns per-channel status plus missing ones. */
 export async function checkRequiredChannels(userId: number) {
   const { REQUIRED_CHANNELS } = await import("./economy.server");
   const results = await Promise.all(
     REQUIRED_CHANNELS.map(async (c) => ({ c, ok: await isChannelMember(c.chat, userId) })),
   );
   const missing = results.filter((r) => !r.ok).map((r) => r.c);
-  return { ok: missing.length === 0, missing };
+  return {
+    ok: missing.length === 0,
+    missing,
+    channels: results.map((r) => ({ ...r.c, joined: r.ok })),
+  };
 }
+
