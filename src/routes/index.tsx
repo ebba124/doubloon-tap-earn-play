@@ -240,7 +240,15 @@ function EarnTab({ session }: { session: any }) {
         getWebApp()?.showAlert?.("Come back in 20+ hours for your next daily.");
       }
     },
+    onError: (e: any) => {
+      haptic("medium");
+      getWebApp()?.showAlert?.(
+        e?.message ?? "You must join all our channels before claiming.",
+      );
+      qc.invalidateQueries({ queryKey: ["session"] });
+    },
   });
+
 
   const canDaily = useMemo(() => {
     if (!session.user.last_daily_claim) return true;
