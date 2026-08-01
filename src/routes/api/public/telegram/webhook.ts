@@ -55,7 +55,9 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           // Send welcome message via Bot API
           const chatId = msg.chat?.id ?? from.id;
           const webAppUrl =
-            process.env.PUBLIC_APP_URL ?? "https://doubloon-tap-quest.lovable.app";
+            process.env.PUBLIC_APP_URL ??
+            process.env.VITE_PUBLIC_APP_URL ??
+            "https://doubloon-tap-earn-play.vercel.app";
           const name = from.username ? `@${from.username}` : (from.first_name ?? "there");
           const welcome = [
             `👋 Hey, ${name}! Welcome to <b>DoubloonTap</b>!`,
@@ -64,9 +66,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             ``,
             `DoubloonTap is a fun rewards platform where you can earn DBL by tapping daily, completing quests, joining our community, and inviting friends. Stay active to maximise your rewards and climb the leaderboard.`,
             ``,
-            `🎁 The more you participate, the more you earn!`,
-            `Have friends, family, or teammates?`,
-            `Invite them to join DoubloonTap and grow your rewards together.`,
+            `🎁 The more you participate, the more you earn! Have friends, family, or teammates? Invite them to join DoubloonTap and grow your rewards together.`,
             ``,
             `More friends. More rewards. More Doubloons. 🚀`,
           ].join("\n");

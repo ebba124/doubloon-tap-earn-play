@@ -376,9 +376,23 @@ function TasksTab({ session }: { session: any }) {
   });
 
   const channels: any[] = session.membership?.channels ?? [];
+  const missing: any[] = session.membership?.missing ?? [];
   const joinedChat = (chat?: string) =>
     !chat || channels.find((c) => c.chat === chat)?.joined === true;
   const allJoined = session.membership?.ok !== false;
+
+  const notifyMustJoin = (chat?: string) => {
+    haptic("medium");
+    const missingLabels = missing.map((c: any) => c.label);
+    const target =
+      chat && !joinedChat(chat)
+        ? channels.find((c) => c.chat === chat)?.label ?? chat
+        : missingLabels.join(", ");
+    getWebApp()?.showAlert?.(
+      `🔒 You haven't joined yet!\n\nYou must join ${target || "all required channels"} before you can claim this reward.\n\nTap “Join”, then come back and press Claim again.`,
+    );
+    qc.invalidateQueries({ queryKey: ["session"] });
+  };
 
   return (
     <div className="px-4 flex flex-col gap-3">
@@ -421,11 +435,7 @@ function TasksTab({ session }: { session: any }) {
                   style={{ padding: "6px 12px", opacity: locked ? 0.5 : 1 }}
                   onClick={() => {
                     if (locked) {
-                      haptic("medium");
-                      getWebApp()?.showAlert?.(
-                        "You haven't joined yet. Join the channel, then tap “I've joined — check again”.",
-                      );
-                      qc.invalidateQueries({ queryKey: ["session"] });
+                      notifyMustJoin(t.chat);
                       return;
                     }
                     mut.mutate(t.id);
@@ -441,10 +451,7 @@ function TasksTab({ session }: { session: any }) {
                 style={{ width: "auto", opacity: locked ? 0.5 : 1 }}
                 onClick={() => {
                   if (locked) {
-                    haptic("medium");
-                    getWebApp()?.showAlert?.(
-                      "Join all required channels first to unlock rewards.",
-                    );
+                    notifyMustJoin();
                     return;
                   }
                   mut.mutate(t.id);

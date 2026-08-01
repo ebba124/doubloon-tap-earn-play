@@ -109,8 +109,44 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function useRemoveEditBadge() {
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const isEditBadge = (el: Element) => {
+      const text = (el.textContent ?? "").trim().toLowerCase();
+      const href = (el.getAttribute?.("href") ?? "").toLowerCase();
+      const id = (el.id ?? "").toLowerCase();
+      const cls = (el.getAttribute?.("class") ?? "").toLowerCase();
+      return (
+        text === "edit with lovable" ||
+        href.includes("lovable.dev") ||
+        href.includes("gpteng") ||
+        id.includes("lovable") ||
+        cls.includes("lovable-badge")
+      );
+    };
+
+    const strip = () => {
+      document
+        .querySelectorAll<HTMLElement>(
+          "a, button, div, [id*='lovable'], [class*='lovable']",
+        )
+        .forEach((el) => {
+          if (isEditBadge(el)) el.remove();
+        });
+    };
+
+    strip();
+    const observer = new MutationObserver(strip);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useRemoveEditBadge();
 
   return (
     <QueryClientProvider client={queryClient}>
