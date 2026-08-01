@@ -105,22 +105,18 @@ function App({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["session"],
     queryFn: () => getSessionFn({ data: { initData } }),
+    enabled: Boolean(initData),
     refetchOnWindowFocus: false,
     staleTime: 30_000,
     retry: false,
   });
 
+  // Opened outside Telegram (or launch data missing) — never call the server.
+  if (!initData) return <AuthError message="No Telegram session detected." />;
   if (isLoading) return <SplashLoader />;
   if (error || !data)
-    return (
-      <AuthError
-        message={
-          !initData
-            ? "No Telegram session detected."
-            : ((error as Error)?.message ?? "Session failed")
-        }
-      />
-    );
+    return <AuthError message={(error as Error)?.message ?? "Session failed"} />;
+
 
   return (
     <div className="app-shell">
