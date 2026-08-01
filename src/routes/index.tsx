@@ -335,7 +335,7 @@ function ChannelGate({ session }: { session: any }) {
   const qc = useQueryClient();
   if (session.membership?.ok !== false) return null;
   return (
-    <div className="px-4">
+    <div className="w-full">
       <div className="list-row flex-col items-stretch gap-2">
         <div className="font-bold">🔒 Join our channels to unlock rewards</div>
         <div className="text-xs text-[var(--muted-foreground)]">
