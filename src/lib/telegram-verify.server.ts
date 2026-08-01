@@ -65,9 +65,11 @@ export function verifyTelegramInitData(
   };
 }
 
-/** Dev-only bypass: allow ?dev_user=<id> when NODE_ENV !== "production" and DEV_BYPASS=1. */
+/** Dev-only bypass: allowed only outside production and when DEV_BYPASS=1. */
 export function devBypassUser(initData: string): VerifiedInitData | null {
+  if (process.env.NODE_ENV === "production") return null;
   if (process.env.DEV_BYPASS !== "1") return null;
+
   const params = new URLSearchParams(initData);
   const devId = Number(params.get("dev_user"));
   if (!devId) return null;

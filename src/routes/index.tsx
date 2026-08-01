@@ -240,7 +240,15 @@ function EarnTab({ session }: { session: any }) {
         getWebApp()?.showAlert?.("Come back in 20+ hours for your next daily.");
       }
     },
+    onError: (e: any) => {
+      haptic("medium");
+      getWebApp()?.showAlert?.(
+        e?.message ?? "You must join all our channels before claiming.",
+      );
+      qc.invalidateQueries({ queryKey: ["session"] });
+    },
   });
+
 
   const canDaily = useMemo(() => {
     if (!session.user.last_daily_claim) return true;
@@ -250,7 +258,9 @@ function EarnTab({ session }: { session: any }) {
 
   return (
     <div className="flex flex-col items-center px-4 gap-4">
+      <ChannelGate session={session} />
       <div className="balance-hero">
+
         <span>🪙</span>
         <span>{formatNum(localBalance)}</span>
         <span className="text-sm text-[var(--muted-foreground)] font-semibold">DBL</span>
@@ -325,7 +335,7 @@ function ChannelGate({ session }: { session: any }) {
   const qc = useQueryClient();
   if (session.membership?.ok !== false) return null;
   return (
-    <div className="px-4">
+    <div className="w-full">
       <div className="list-row flex-col items-stretch gap-2">
         <div className="font-bold">🔒 Join our channels to unlock rewards</div>
         <div className="text-xs text-[var(--muted-foreground)]">
@@ -357,9 +367,22 @@ function TasksTab({ session }: { session: any }) {
   const mut = useMutation({
     mutationFn: (taskId: string) =>
       completeFn({ data: { initData: getInitData(), taskId } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["session"] }),
-    onError: (e: any) => getWebApp()?.showAlert?.(e.message ?? "Failed"),
+    onSuccess: () => {
+      haptic("medium");
+      qc.invalidateQueries({ queryKey: ["session"] });
+    },
+    onError: (e: any) => {
+      getWebApp()?.showAlert?.(
+        e?.message ?? "You haven't joined yet — join the channel to claim this reward.",
+      );
+      qc.invalidateQueries({ queryKey: ["session"] });
+    },
   });
+
+  const channels: any[] = session.membership?.channels ?? [];
+  const joinedChat = (chat?: string) =>
+    !chat || channels.find((c) => c.chat === chat)?.joined === true;
+  const allJoined = session.membership?.ok !== false;
 
   return (
     <div className="px-4 flex flex-col gap-3">
@@ -367,6 +390,8 @@ function TasksTab({ session }: { session: any }) {
       <ChannelGate session={session} />
       {session.tasks.map((t: any) => {
         const done = session.tasksDone.includes(t.id);
+        const joined = joinedChat(t.chat);
+        const locked = !allJoined || !joined;
         return (
           <div key={t.id} className="list-row">
             <div className="flex-1 min-w-0">
@@ -375,6 +400,15 @@ function TasksTab({ session }: { session: any }) {
               <div className="text-sm text-[var(--gold)] font-bold mt-1">
                 +{formatNum(t.reward)} DBL
               </div>
+              {!done && locked && (
+                <div className="text-xs mt-1" style={{ color: "#ff6b6b" }}>
+                  🔒 Not joined yet — you must join {t.chat ?? "all required channels"} to
+                  claim this reward.
+                </div>
+              )}
+              {!done && !locked && t.kind === "channel" && (
+                <div className="text-xs mt-1 text-[var(--gold)]">✓ Joined — ready to claim</div>
+              )}
             </div>
             {done ? (
               <span className="badge">✓ Done</span>
@@ -388,21 +422,40 @@ function TasksTab({ session }: { session: any }) {
                 </button>
                 <button
                   className="primary-btn"
-                  style={{ padding: "6px 12px" }}
-                  onClick={() => mut.mutate(t.id)}
+                  style={{ padding: "6px 12px", opacity: locked ? 0.5 : 1 }}
+                  onClick={() => {
+                    if (locked) {
+                      haptic("medium");
+                      getWebApp()?.showAlert?.(
+                        "You haven't joined yet. Join the channel, then tap “I've joined — check again”.",
+                      );
+                      qc.invalidateQueries({ queryKey: ["session"] });
+                      return;
+                    }
+                    mut.mutate(t.id);
+                  }}
                   disabled={mut.isPending}
                 >
-                  Claim
+                  {locked ? "🔒 Claim" : "Claim"}
                 </button>
               </div>
             ) : (
               <button
                 className="primary-btn"
-                style={{ width: "auto" }}
-                onClick={() => mut.mutate(t.id)}
+                style={{ width: "auto", opacity: locked ? 0.5 : 1 }}
+                onClick={() => {
+                  if (locked) {
+                    haptic("medium");
+                    getWebApp()?.showAlert?.(
+                      "Join all required channels first to unlock rewards.",
+                    );
+                    return;
+                  }
+                  mut.mutate(t.id);
+                }}
                 disabled={mut.isPending}
               >
-                Claim
+                {locked ? "🔒 Claim" : "Claim"}
               </button>
             )}
           </div>
@@ -411,6 +464,7 @@ function TasksTab({ session }: { session: any }) {
     </div>
   );
 }
+
 
 function FriendsTab({ session }: { session: any }) {
   const link = `https://t.me/${session.config.botUsername}?start=ref_${session.user.id}`;
