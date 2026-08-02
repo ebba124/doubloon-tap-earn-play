@@ -1,9 +1,44 @@
 // Server-authoritative economy config. Client cannot influence these values.
 
-export const DBL_PER_USDT = 1_000; // 10,000 DBL = 10 USDT
-export const MIN_WITHDRAW_DBL = 10_000; // 10 USDT
+export const DBL_PER_USDT = 25_000; // 25,000 DBL = 1 USDT ($1 = 25,000 coins)
+export const MIN_WITHDRAW_DBL = 25_000; // 1 USDT minimum
 export const MAX_TAPS_PER_REQUEST = 50;
 export const MAX_TAPS_PER_SECOND = 20; // anti-bot rate cap per user
+
+// --- Lucky Spin Wheel -------------------------------------------------------
+// One free spin per cooldown window. Prize is chosen server-side with a
+// weighted random draw so the client can never influence the outcome.
+export const SPIN_COOLDOWN_SEC = 3 * 60 * 60; // 3 hours between free spins
+
+export interface SpinPrize {
+  label: string;
+  amount: number;
+  weight: number;
+  color: string;
+}
+
+// Order defines the on-wheel segment layout (index 0 at the top, clockwise).
+export const SPIN_PRIZES: SpinPrize[] = [
+  { label: "250", amount: 250, weight: 26, color: "oklch(0.30 0.05 60)" },
+  { label: "1K", amount: 1_000, weight: 22, color: "oklch(0.55 0.14 65)" },
+  { label: "500", amount: 500, weight: 20, color: "oklch(0.30 0.05 60)" },
+  { label: "2K", amount: 2_000, weight: 13, color: "oklch(0.55 0.14 65)" },
+  { label: "5K", amount: 5_000, weight: 9, color: "oklch(0.30 0.05 60)" },
+  { label: "750", amount: 750, weight: 7, color: "oklch(0.55 0.14 65)" },
+  { label: "10K", amount: 10_000, weight: 2.5, color: "oklch(0.30 0.05 60)" },
+  { label: "25K", amount: 25_000, weight: 0.5, color: "oklch(0.85 0.17 85)" },
+];
+
+/** Weighted random prize draw. Returns the winning segment index. */
+export function pickSpinPrize(): number {
+  const total = SPIN_PRIZES.reduce((s, p) => s + p.weight, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < SPIN_PRIZES.length; i++) {
+    r -= SPIN_PRIZES[i].weight;
+    if (r <= 0) return i;
+  }
+  return SPIN_PRIZES.length - 1;
+}
 
 export const DAILY_STREAK_REWARDS: number[] = [
   500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
