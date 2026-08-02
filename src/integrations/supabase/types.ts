@@ -35,6 +35,32 @@ export type Database = {
         }
         Relationships: []
       }
+      achievements: {
+        Row: {
+          achievement_id: string
+          unlocked_at: string
+          user_id: number
+        }
+        Insert: {
+          achievement_id: string
+          unlocked_at?: string
+          user_id: number
+        }
+        Update: {
+          achievement_id?: string
+          unlocked_at?: string
+          user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "achievements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -193,19 +219,25 @@ export type Database = {
           energy_max: number
           energy_regen_per_sec: number
           first_name: string | null
+          gems: number
           id: number
+          is_vip: boolean
           language_code: string | null
           last_daily_claim: string | null
           last_energy_update: string
           last_name: string | null
+          level: number
+          longest_streak: number
           multitap_level: number
           photo_url: string | null
           referred_by: number | null
           streak_day: number
+          streak_freezes: number
           tap_multiplier_permanent: number
           tap_value: number
           total_taps: number
           username: string | null
+          xp: number
         }
         Insert: {
           balance?: number
@@ -215,19 +247,25 @@ export type Database = {
           energy_max?: number
           energy_regen_per_sec?: number
           first_name?: string | null
+          gems?: number
           id: number
+          is_vip?: boolean
           language_code?: string | null
           last_daily_claim?: string | null
           last_energy_update?: string
           last_name?: string | null
+          level?: number
+          longest_streak?: number
           multitap_level?: number
           photo_url?: string | null
           referred_by?: number | null
           streak_day?: number
+          streak_freezes?: number
           tap_multiplier_permanent?: number
           tap_value?: number
           total_taps?: number
           username?: string | null
+          xp?: number
         }
         Update: {
           balance?: number
@@ -237,19 +275,25 @@ export type Database = {
           energy_max?: number
           energy_regen_per_sec?: number
           first_name?: string | null
+          gems?: number
           id?: number
+          is_vip?: boolean
           language_code?: string | null
           last_daily_claim?: string | null
           last_energy_update?: string
           last_name?: string | null
+          level?: number
+          longest_streak?: number
           multitap_level?: number
           photo_url?: string | null
           referred_by?: number | null
           streak_day?: number
+          streak_freezes?: number
           tap_multiplier_permanent?: number
           tap_value?: number
           total_taps?: number
           username?: string | null
+          xp?: number
         }
         Relationships: []
       }

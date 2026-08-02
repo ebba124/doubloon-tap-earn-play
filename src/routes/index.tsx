@@ -17,6 +17,11 @@ import { SettingsSheet } from "@/components/settings-sheet";
 import { WinOverlay } from "@/components/win-overlay";
 import { playTap, playClaim, primeAudio } from "@/lib/sound";
 import { Settings } from "lucide-react";
+import { LevelBar } from "@/components/level-bar";
+import { StreakCard } from "@/components/streak-card";
+import { AchievementsPanel } from "@/components/achievements-panel";
+import { ProgressPopups } from "@/components/progress-popups";
+import { pushProgress } from "@/lib/progress-bus";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -127,6 +132,8 @@ function App({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   return (
     <div className="app-shell">
       <Header user={data.user} onOpenSettings={() => setSettingsOpen(true)} />
+      <LevelBar session={data} />
+      <ProgressPopups />
       {tab === "earn" && <EarnTab session={data} />}
       {tab === "spin" && <SpinWheel session={data} />}
       {tab === "tasks" && <TasksTab session={data} />}
@@ -226,6 +233,11 @@ function EarnTab({ session }: { session: any }) {
       setLocalBalance(Number(res.user.balance));
       setLocalEnergy(res.user.energy);
       qc.setQueryData(["session"], (prev: any) => (prev ? { ...prev, user: res.user } : prev));
+      pushProgress((res as any).progress);
+      // Level ups and achievements change the progression/achievement payload.
+      if ((res as any).progress?.levelUps?.length || (res as any).progress?.unlocked?.length) {
+        qc.invalidateQueries({ queryKey: ["session"] });
+      }
     } catch (e) {
       console.error(e);
     }
@@ -265,6 +277,14 @@ function EarnTab({ session }: { session: any }) {
         playClaim();
         qc.setQueryData(["session"], (prev: any) => (prev ? { ...prev, user: r.user } : prev));
         setDailyWin({ open: true, amount: r.claimed });
+        // Show the streak popups only after the daily reward card is dismissed.
+        setTimeout(() => pushProgress(r.progress), 2500);
+        qc.invalidateQueries({ queryKey: ["session"] });
+        if (r.freezeUsed) {
+          getWebApp()?.showAlert?.(
+            "❄️ A streak freeze saved your streak! Check in daily to keep it alive.",
+          );
+        }
       } else {
         getWebApp()?.showAlert?.("Come back in 20+ hours for your next daily.");
       }
@@ -307,8 +327,16 @@ function EarnTab({ session }: { session: any }) {
         disabled={!canDaily || dailyMut.isPending}
         onClick={() => dailyMut.mutate()}
       >
-        {canDaily ? "🎁 Claim daily reward" : "Daily claimed ✓"}
+        {canDaily
+          ? `🎁 Claim daily reward${
+              Number(session.streak?.nextMultiplier ?? 1) > 1
+                ? ` (${session.streak.nextMultiplier}×)`
+                : ""
+            }`
+          : "Daily claimed ✓"}
       </button>
+
+      <StreakCard session={session} />
 
       <div
         className="relative"
@@ -358,8 +386,10 @@ function EarnTab({ session }: { session: any }) {
           </div>
         </div>
         <div className="stat-card">
-          <div className="text-xs text-[var(--muted-foreground)]">Streak</div>
-          <div className="font-bold text-lg">Day {session.user.streak_day || 0}</div>
+          <div className="text-xs text-[var(--muted-foreground)]">Total XP</div>
+          <div className="font-bold text-lg">
+            ✨ {formatNum(Number(session.user.xp ?? 0))}
+          </div>
         </div>
       </div>
     </div>
