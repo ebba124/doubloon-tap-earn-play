@@ -8,9 +8,10 @@ const initDataSchema = z.object({ initData: z.string().min(1) });
 export const getSession = createServerFn({ method: "POST" })
   .inputValidator((d: { initData: string }) => initDataSchema.parse(d))
   .handler(async ({ data }) => {
-    const { verifyInitData, db, incBalance, regenEnergy, checkRequiredChannels } =
+    const { verifyInitData, db, incBalance, regenEnergy, checkRequiredChannels, grantProgress } =
       await import("./game.server");
     const eco = await import("./economy.server");
+    const prog = await import("./progression");
     const v = await verifyInitData(data.initData);
     const svc = db();
 
@@ -56,22 +57,17 @@ export const getSession = createServerFn({ method: "POST" })
             referrer_id: referrerId,
             referred_id: v.user.id,
           });
-          await svc.from("audit_log").insert([
-            {
-              user_id: referrerId,
-              action: "referral_reward",
-              delta: eco.REFERRAL_REWARD_PER_FRIEND,
-              meta: { referred_id: v.user.id },
-            },
-            {
-              user_id: v.user.id,
-              action: "referral_welcome",
-              delta: eco.REFERRAL_REWARD_FOR_INVITEE,
-              meta: { referrer_id: referrerId },
-            },
-          ]);
-          await incBalance(referrerId, eco.REFERRAL_REWARD_PER_FRIEND);
-          await incBalance(v.user.id, eco.REFERRAL_REWARD_FOR_INVITEE);
+          await grantProgress(referrerId, {
+            dbl: eco.REFERRAL_REWARD_PER_FRIEND,
+            xp: prog.XP_PER_REFERRAL,
+            action: "referral_reward",
+            meta: { referred_id: v.user.id },
+          });
+          await grantProgress(v.user.id, {
+            dbl: eco.REFERRAL_REWARD_FOR_INVITEE,
+            action: "referral_welcome",
+            meta: { referrer_id: referrerId },
+          });
           const { count } = await svc
             .from("referrals")
             .select("*", { count: "exact", head: true })
@@ -138,6 +134,11 @@ export const getSession = createServerFn({ method: "POST" })
 
     const membership = await checkRequiredChannels(v.user.id);
 
+    const { data: achRows } = await svc
+      .from("achievements")
+      .select("achievement_id, unlocked_at")
+      .eq("user_id", v.user.id);
+
     const { data: lastSpinRow } = await svc
       .from("audit_log")
       .select("created_at")
@@ -182,6 +183,28 @@ export const getSession = createServerFn({ method: "POST" })
         achieved: Number(user.tap_multiplier_permanent) >= 2,
       },
       withdrawals: withdrawals ?? [],
+      achievements: prog.ACHIEVEMENTS,
+      achievementsUnlocked: (achRows ?? []).map((a) => ({
+        id: a.achievement_id,
+        unlocked_at: a.unlocked_at,
+      })),
+      progression: {
+        level: Number(user.level ?? 1),
+        title: prog.levelTitle(Number(user.level ?? 1)),
+        xp: Number(user.xp ?? 0),
+        ...prog.levelProgress(Number(user.xp ?? 0)),
+        nextLevelReward: prog.levelUpReward(Number(user.level ?? 1) + 1),
+        maxLevel: prog.MAX_LEVEL,
+      },
+      streak: {
+        day: Number(user.streak_day ?? 0),
+        longest: Number(user.longest_streak ?? 0),
+        freezes: Number(user.streak_freezes ?? 0),
+        maxFreezes: prog.MAX_STREAK_FREEZES,
+        multiplier: prog.streakMultiplier(Number(user.streak_day ?? 0)),
+        nextMultiplier: prog.streakMultiplier(Number(user.streak_day ?? 0) + 1),
+        tiers: prog.STREAK_TIERS,
+      },
       config: {
         dblPerUsdt: eco.DBL_PER_USDT,
         minWithdrawDbl: eco.MIN_WITHDRAW_DBL,
@@ -215,8 +238,10 @@ export const tap = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const { verifyInitData, db, regenEnergy } = await import("./game.server");
+    const { verifyInitData, db, regenEnergy, grantProgress, checkAchievements } =
+      await import("./game.server");
     const eco = await import("./economy.server");
+    const prog = await import("./progression");
     const v = await verifyInitData(data.initData);
     const svc = db();
 
@@ -244,25 +269,41 @@ export const tap = createServerFn({ method: "POST" })
     const value =
       applyTaps * Number(u.tap_value) * Number(u.tap_multiplier_permanent || 1);
 
-    await svc
-      .from("users")
-      .update({
-        balance: Number(u.balance) + value,
-        energy: u.energy - applyTaps,
-        total_taps: Number(u.total_taps) + applyTaps,
-        last_energy_update: new Date().toISOString(),
-      })
-      .eq("id", v.user.id);
+    const prevTaps = Number(u.total_taps);
+    const newTaps = prevTaps + applyTaps;
 
-    await svc.from("audit_log").insert({
-      user_id: v.user.id,
+    const granted = await grantProgress(v.user.id, {
+      dbl: value,
+      xp: applyTaps * prog.XP_PER_TAP,
+      patch: {
+        energy: u.energy - applyTaps,
+        total_taps: newTaps,
+        last_energy_update: new Date().toISOString(),
+      },
       action: "tap",
-      delta: applyTaps,
-      meta: { value },
+      meta: { taps: applyTaps, value },
     });
 
-    const fresh = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
-    return { user: fresh, applied: applyTaps, duplicate: false };
+    // Only walk the achievement table when a tap milestone could have been hit.
+    const crossedTapMilestone = prog.TAP_ACHIEVEMENT_THRESHOLDS.some(
+      (t) => prevTaps < t && newTaps >= t,
+    );
+    let unlocked: unknown[] = [];
+    let levelUps = granted.levelUps;
+    let fresh = granted.user;
+    if (crossedTapMilestone || granted.levelUps.length > 0) {
+      const ach = await checkAchievements(v.user.id);
+      unlocked = ach.unlocked;
+      levelUps = [...levelUps, ...ach.levelUps];
+      fresh = ach.user;
+    }
+
+    return {
+      user: fresh,
+      applied: applyTaps,
+      duplicate: false,
+      progress: { levelUps, unlocked },
+    };
   });
 
 // --- claimDaily -------------------------------------------------------------
@@ -270,11 +311,11 @@ export const tap = createServerFn({ method: "POST" })
 export const claimDaily = createServerFn({ method: "POST" })
   .inputValidator((d: { initData: string }) => initDataSchema.parse(d))
   .handler(async ({ data }) => {
-    const { verifyInitData, db, regenEnergy, checkRequiredChannels } =
+    const { verifyInitData, regenEnergy, checkRequiredChannels, grantProgress, checkAchievements } =
       await import("./game.server");
     const eco = await import("./economy.server");
+    const prog = await import("./progression");
     const v = await verifyInitData(data.initData);
-    const svc = db();
     const gate = await checkRequiredChannels(v.user.id);
     if (!gate.ok)
       throw new Error(
@@ -284,31 +325,75 @@ export const claimDaily = createServerFn({ method: "POST" })
 
     const now = new Date();
     const last = u.last_daily_claim ? new Date(u.last_daily_claim) : null;
-    if (last) {
-      const hours = (now.getTime() - last.getTime()) / (1000 * 60 * 60);
-      if (hours < 20) return { user: u, claimed: 0, reason: "cooldown" as const, day: u.streak_day };
-    }
-    let day = Number(u.streak_day ?? 0);
-    if (last && (now.getTime() - last.getTime()) / (1000 * 60 * 60) > 48) day = 0;
-    day = Math.min(day + 1, eco.DAILY_STREAK_REWARDS.length);
-    const reward = eco.DAILY_STREAK_REWARDS[day - 1];
+    const gapHours = last ? (now.getTime() - last.getTime()) / (1000 * 60 * 60) : 0;
+    if (last && gapHours < 20)
+      return {
+        user: u,
+        claimed: 0,
+        reason: "cooldown" as const,
+        day: u.streak_day,
+        multiplier: prog.streakMultiplier(Number(u.streak_day ?? 0)),
+        gems: 0,
+        freezeUsed: false,
+        comebackBonus: 0,
+        progress: { levelUps: [], unlocked: [] as unknown[] },
+      };
 
-    await svc
-      .from("users")
-      .update({
-        balance: Number(u.balance) + reward,
+    let day = Number(u.streak_day ?? 0);
+    let freezes = Number(u.streak_freezes ?? 0);
+    let freezeUsed = false;
+    let comebackBonus = 0;
+
+    if (last && gapHours > 48) {
+      if (gapHours <= prog.STREAK_FREEZE_WINDOW_HOURS && freezes > 0) {
+        // A stored freeze rescues the streak instead of resetting it.
+        freezes -= 1;
+        freezeUsed = true;
+      } else {
+        if (day >= 3) comebackBonus = prog.COMEBACK_BONUS_DBL;
+        day = 0;
+      }
+    }
+
+    day = Math.min(day + 1, eco.DAILY_STREAK_REWARDS.length);
+    const base = eco.DAILY_STREAK_REWARDS[day - 1];
+    const multiplier = prog.streakMultiplier(day);
+    const reward = Math.floor(base * multiplier) + comebackBonus;
+    const gems =
+      prog.GEMS_PER_DAILY + (day % 7 === 0 ? prog.GEMS_WEEKLY_BONUS : 0);
+    // Every completed week banks a streak freeze, up to the cap.
+    if (day % 7 === 0) freezes = Math.min(prog.MAX_STREAK_FREEZES, freezes + 1);
+
+    const granted = await grantProgress(v.user.id, {
+      dbl: reward,
+      gems,
+      xp: prog.XP_PER_DAILY + day * 5,
+      patch: {
         streak_day: day,
+        longest_streak: Math.max(Number(u.longest_streak ?? 0), day),
+        streak_freezes: freezes,
         last_daily_claim: now.toISOString(),
-      })
-      .eq("id", v.user.id);
-    await svc.from("audit_log").insert({
-      user_id: v.user.id,
+      },
       action: "daily_claim",
-      delta: reward,
-      meta: { day },
+      meta: { day, base, multiplier, freezeUsed, comebackBonus },
     });
-    const fresh = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
-    return { user: fresh, claimed: reward, reason: "ok" as const, day };
+
+    const ach = await checkAchievements(v.user.id);
+
+    return {
+      user: ach.user,
+      claimed: reward,
+      reason: "ok" as const,
+      day,
+      multiplier,
+      gems,
+      freezeUsed,
+      comebackBonus,
+      progress: {
+        levelUps: [...granted.levelUps, ...ach.levelUps],
+        unlocked: ach.unlocked as unknown[],
+      },
+    };
   });
 
 // --- buyBoost ---------------------------------------------------------------
@@ -369,9 +454,10 @@ export const completeTask = createServerFn({ method: "POST" })
     z.object({ initData: z.string().min(1), taskId: z.string() }).parse(d),
   )
   .handler(async ({ data }) => {
-    const { verifyInitData, db, incBalance, checkRequiredChannels } =
+    const { verifyInitData, db, checkRequiredChannels, grantProgress, checkAchievements } =
       await import("./game.server");
     const eco = await import("./economy.server");
+    const prog = await import("./progression");
     const v = await verifyInitData(data.initData);
     const svc = db();
     const task = eco.TASKS.find((t) => t.id === data.taskId);
@@ -419,15 +505,22 @@ export const completeTask = createServerFn({ method: "POST" })
     });
     if (dupErr) throw new Error("Task already claimed");
 
-    await incBalance(v.user.id, task.reward);
-    await svc.from("audit_log").insert({
-      user_id: v.user.id,
+    const granted = await grantProgress(v.user.id, {
+      dbl: task.reward,
+      xp: prog.XP_PER_TASK,
       action: "task_complete",
-      delta: task.reward,
       meta: { task: task.id },
     });
-    const fresh = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
-    return { user: fresh, reward: task.reward };
+    const ach = await checkAchievements(v.user.id);
+
+    return {
+      user: ach.user,
+      reward: task.reward,
+      progress: {
+        levelUps: [...granted.levelUps, ...ach.levelUps],
+        unlocked: ach.unlocked as unknown[],
+      },
+    };
   });
 
 // --- requestWithdraw --------------------------------------------------------
@@ -497,8 +590,10 @@ export const spin = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const { verifyInitData, db, checkRequiredChannels } = await import("./game.server");
+    const { verifyInitData, db, checkRequiredChannels, grantProgress, checkAchievements } =
+      await import("./game.server");
     const eco = await import("./economy.server");
+    const prog = await import("./progression");
     const v = await verifyInitData(data.initData);
     const svc = db();
 
@@ -541,27 +636,26 @@ export const spin = createServerFn({ method: "POST" })
     const prizeIndex = eco.pickSpinPrize();
     const prize = eco.SPIN_PRIZES[prizeIndex];
 
-    const u = (await svc.from("users").select("balance").eq("id", v.user.id).single()).data!;
-    await svc
-      .from("users")
-      .update({ balance: Number(u.balance) + prize.amount })
-      .eq("id", v.user.id);
-    await svc.from("audit_log").insert({
-      user_id: v.user.id,
+    const granted = await grantProgress(v.user.id, {
+      dbl: prize.amount,
+      xp: prog.XP_PER_SPIN,
       action: "spin",
-      delta: prize.amount,
       meta: { prizeIndex, label: prize.label },
     });
+    const ach = await checkAchievements(v.user.id);
 
-    const fresh = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
     const nextSpinAt = new Date(Date.now() + eco.SPIN_COOLDOWN_SEC * 1000).toISOString();
     return {
-      user: fresh,
+      user: ach.user,
       prizeIndex,
       amount: prize.amount,
       cooldown: false,
       duplicate: false,
       nextSpinAt,
+      progress: {
+        levelUps: [...granted.levelUps, ...ach.levelUps],
+        unlocked: ach.unlocked as unknown[],
+      },
     };
   });
 
