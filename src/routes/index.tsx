@@ -12,6 +12,11 @@ import {
   getLeaderboard,
 } from "@/lib/game.functions";
 import { getInitData, getWebApp, haptic, makeNonce } from "@/lib/telegram-webapp";
+import { SpinWheel } from "@/components/spin-wheel";
+import { SettingsSheet } from "@/components/settings-sheet";
+import { WinOverlay } from "@/components/win-overlay";
+import { playTap, playClaim, primeAudio } from "@/lib/sound";
+import { Settings } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,7 +46,7 @@ function formatNum(n: number) {
   return Math.floor(n).toLocaleString();
 }
 
-type Tab = "earn" | "tasks" | "friends" | "boosts" | "wallet";
+type Tab = "earn" | "spin" | "tasks" | "friends" | "boosts" | "wallet";
 
 function SplashLoader() {
   return (
@@ -101,6 +106,7 @@ function DoubloonTap() {
 
 function App({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   const initData = getInitData();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const getSessionFn = useServerFn(getSession);
   const { data, isLoading, error } = useQuery({
     queryKey: ["session"],
@@ -120,18 +126,30 @@ function App({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
 
   return (
     <div className="app-shell">
-      <Header user={data.user} />
+      <Header user={data.user} onOpenSettings={() => setSettingsOpen(true)} />
       {tab === "earn" && <EarnTab session={data} />}
+      {tab === "spin" && <SpinWheel session={data} />}
       {tab === "tasks" && <TasksTab session={data} />}
       {tab === "friends" && <FriendsTab session={data} />}
       {tab === "boosts" && <BoostsTab session={data} />}
       {tab === "wallet" && <WalletTab session={data} />}
       <TabBar tab={tab} setTab={setTab} />
+      <SettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        dblPerUsdt={data.config.dblPerUsdt}
+      />
     </div>
   );
 }
 
-function Header({ user }: { user: any }) {
+function Header({
+  user,
+  onOpenSettings,
+}: {
+  user: any;
+  onOpenSettings: () => void;
+}) {
   const name =
     [user.first_name, user.last_name].filter(Boolean).join(" ") ||
     user.username ||
@@ -155,6 +173,14 @@ function Header({ user }: { user: any }) {
           {user.username ? `@${user.username}` : `id ${user.id}`}
         </div>
       </div>
+      <button
+        className="ghost-btn"
+        style={{ padding: 10 }}
+        aria-label="Open settings"
+        onClick={onOpenSettings}
+      >
+        <Settings size={20} />
+      </button>
     </div>
   );
 }
@@ -169,6 +195,10 @@ function EarnTab({ session }: { session: any }) {
   const pending = useRef<number>(0);
   const nonce = useRef<string>(makeNonce());
   const flushT = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dailyWin, setDailyWin] = useState<{ open: boolean; amount: number }>({
+    open: false,
+    amount: 0,
+  });
 
   useEffect(() => {
     setLocalBalance(Number(session.user.balance));
@@ -203,7 +233,9 @@ function EarnTab({ session }: { session: any }) {
 
   const handleTap = (e: React.PointerEvent) => {
     if (localEnergy < session.user.tap_value) return;
+    primeAudio();
     haptic("light");
+    playTap();
     const perTap =
       Number(session.user.tap_value) * Number(session.user.tap_multiplier_permanent || 1);
     setLocalBalance((b) => b + perTap);
@@ -230,8 +262,9 @@ function EarnTab({ session }: { session: any }) {
     onSuccess: (r) => {
       if (r.reason === "ok") {
         haptic("medium");
+        playClaim();
         qc.setQueryData(["session"], (prev: any) => (prev ? { ...prev, user: r.user } : prev));
-        getWebApp()?.showAlert?.(`+${formatNum(r.claimed)} DBL — Day ${r.day}`);
+        setDailyWin({ open: true, amount: r.claimed });
       } else {
         getWebApp()?.showAlert?.("Come back in 20+ hours for your next daily.");
       }
@@ -254,6 +287,12 @@ function EarnTab({ session }: { session: any }) {
 
   return (
     <div className="flex flex-col items-center px-4 gap-4">
+      <WinOverlay
+        open={dailyWin.open}
+        amount={dailyWin.amount}
+        title="Daily reward!"
+        onClose={() => setDailyWin({ open: false, amount: 0 })}
+      />
       <ChannelGate session={session} />
       <div className="balance-hero">
 
@@ -365,6 +404,7 @@ function TasksTab({ session }: { session: any }) {
       completeFn({ data: { initData: getInitData(), taskId } }),
     onSuccess: () => {
       haptic("medium");
+      playClaim();
       qc.invalidateQueries({ queryKey: ["session"] });
     },
     onError: (e: any) => {
@@ -560,6 +600,7 @@ function BoostsTab({ session }: { session: any }) {
       buyFn({ data: { initData: getInitData(), boostId: id, nonce: makeNonce() } }),
     onSuccess: (r) => {
       haptic("medium");
+      playClaim();
       qc.setQueryData(["session"], (prev: any) => (prev ? { ...prev, user: r.user } : prev));
     },
     onError: (e: any) => getWebApp()?.showAlert?.(e.message ?? "Failed"),
@@ -764,6 +805,7 @@ function Leaderboard() {
 function TabBar({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "earn", label: "Earn", icon: "🪙" },
+    { id: "spin", label: "Spin", icon: "🎡" },
     { id: "tasks", label: "Tasks", icon: "✅" },
     { id: "friends", label: "Friends", icon: "😺" },
     { id: "boosts", label: "Boosts", icon: "🤖" },

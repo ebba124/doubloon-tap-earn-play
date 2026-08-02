@@ -138,9 +138,24 @@ export const getSession = createServerFn({ method: "POST" })
 
     const membership = await checkRequiredChannels(v.user.id);
 
+    const { data: lastSpinRow } = await svc
+      .from("audit_log")
+      .select("created_at")
+      .eq("user_id", v.user.id)
+      .eq("action", "spin")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextSpinAt = lastSpinRow
+      ? new Date(
+          new Date(lastSpinRow.created_at).getTime() + eco.SPIN_COOLDOWN_SEC * 1000,
+        ).toISOString()
+      : null;
+
     return {
       user,
       membership,
+      nextSpinAt,
       tasks: eco.TASKS,
       tasksDone: (tasksDone ?? []).map((t) => t.task_id),
       boosts: eco.BOOSTS.map((b) => ({
@@ -177,6 +192,12 @@ export const getSession = createServerFn({ method: "POST" })
           network: m.network,
         })),
         dailyRewards: eco.DAILY_STREAK_REWARDS,
+        spinCooldownSec: eco.SPIN_COOLDOWN_SEC,
+        spinPrizes: eco.SPIN_PRIZES.map((p) => ({
+          label: p.label,
+          amount: p.amount,
+          color: p.color,
+        })),
       },
     };
   });
@@ -462,6 +483,86 @@ export const requestWithdraw = createServerFn({ method: "POST" })
       meta: { withdrawal_id: wd.id, method: data.method },
     });
     return { ok: true, withdrawal: wd };
+  });
+
+// --- spin (Lucky Spin Wheel) ------------------------------------------------
+
+export const spin = createServerFn({ method: "POST" })
+  .inputValidator((d: { initData: string; nonce: string }) =>
+    z
+      .object({
+        initData: z.string().min(1),
+        nonce: z.string().min(8).max(64),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { verifyInitData, db, checkRequiredChannels } = await import("./game.server");
+    const eco = await import("./economy.server");
+    const v = await verifyInitData(data.initData);
+    const svc = db();
+
+    const gate = await checkRequiredChannels(v.user.id);
+    if (!gate.ok)
+      throw new Error(
+        `Join our channels first: ${gate.missing.map((c) => c.label).join(", ")}`,
+      );
+
+    // Server-side cooldown enforcement using the audit log.
+    const { data: lastSpinRow } = await svc
+      .from("audit_log")
+      .select("created_at")
+      .eq("user_id", v.user.id)
+      .eq("action", "spin")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastSpinRow) {
+      const elapsedSec = (Date.now() - new Date(lastSpinRow.created_at).getTime()) / 1000;
+      if (elapsedSec < eco.SPIN_COOLDOWN_SEC) {
+        const u = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
+        const nextSpinAt = new Date(
+          new Date(lastSpinRow.created_at).getTime() + eco.SPIN_COOLDOWN_SEC * 1000,
+        ).toISOString();
+        return { user: u, prizeIndex: -1, amount: 0, cooldown: true, duplicate: false, nextSpinAt };
+      }
+    }
+
+    // Idempotency guard so a retried request cannot double-award a spin.
+    const idKey = `spin:${v.user.id}:${data.nonce}`;
+    const { error: idErr } = await svc
+      .from("idempotency")
+      .insert({ key: idKey, user_id: v.user.id });
+    if (idErr) {
+      const u = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
+      return { user: u, prizeIndex: -1, amount: 0, cooldown: false, duplicate: true, nextSpinAt: null };
+    }
+
+    const prizeIndex = eco.pickSpinPrize();
+    const prize = eco.SPIN_PRIZES[prizeIndex];
+
+    const u = (await svc.from("users").select("balance").eq("id", v.user.id).single()).data!;
+    await svc
+      .from("users")
+      .update({ balance: Number(u.balance) + prize.amount })
+      .eq("id", v.user.id);
+    await svc.from("audit_log").insert({
+      user_id: v.user.id,
+      action: "spin",
+      delta: prize.amount,
+      meta: { prizeIndex, label: prize.label },
+    });
+
+    const fresh = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
+    const nextSpinAt = new Date(Date.now() + eco.SPIN_COOLDOWN_SEC * 1000).toISOString();
+    return {
+      user: fresh,
+      prizeIndex,
+      amount: prize.amount,
+      cooldown: false,
+      duplicate: false,
+      nextSpinAt,
+    };
   });
 
 // --- leaderboard ------------------------------------------------------------
