@@ -64,7 +64,10 @@ function fmtCountdown(ms: number) {
 export function SpinWheel({ session }: { session: SpinWheelSessionData }) {
   const qc = useQueryClient();
   const spinFn = useServerFn(spin);
-  const prizes: Prize[] = session.config.spinPrizes ?? [];
+  const prizes = useMemo(
+    () => (session.config.spinPrizes ?? []) as Prize[],
+    [session.config.spinPrizes],
+  );
   const N = prizes.length;
   const seg = N > 0 ? 360 / N : 0;
 

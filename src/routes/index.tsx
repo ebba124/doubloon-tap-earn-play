@@ -277,10 +277,17 @@ function Header({
 function InboxPanel({ session }: { session: any }) {
   const [items, setItems] = useState<InboxItem[]>([]);
 
+  const sessionKey = useMemo(
+    () =>
+      `${session.user?.last_daily_claim},${session.membership?.ok},${session.tasksDone?.join(",")}`,
+    [session.user?.last_daily_claim, session.membership?.ok, session.tasksDone],
+  );
+
   useEffect(() => {
     const next = buildInboxItems(session);
     setItems(next);
-  }, [session.user?.last_daily_claim, session.membership?.ok, session.tasksDone?.join(",")]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionKey]);
 
   if (items.length === 0) return null;
 

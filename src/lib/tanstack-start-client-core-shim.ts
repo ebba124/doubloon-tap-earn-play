@@ -68,3 +68,14 @@ export const executeMiddleware = (realModule as any).executeMiddleware;
 export const getGlobalStartContext = (realModule as any).getGlobalStartContext;
 export const getRouterInstance = (realModule as any).getRouterInstance;
 export const getDefaultSerovalPlugins = (realModule as any).getDefaultSerovalPlugins;
+export const TSS_CONTENT_TYPE_FRAMED_VERSIONED = (realModule as any)
+  .TSS_CONTENT_TYPE_FRAMED_VERSIONED;
+export const TSS_FORMDATA_CONTEXT = (realModule as any).TSS_FORMDATA_CONTEXT;
+export const X_TSS_RAW_RESPONSE = (realModule as any).X_TSS_RAW_RESPONSE;
+export const X_TSS_SERIALIZED = (realModule as any).X_TSS_SERIALIZED;
+export const getDefaultSerovalPlugins_compat = (realModule as any).getDefaultSerovalPlugins;
+export const TSS_SERVER_FUNCTION = (realModule as any).TSS_SERVER_FUNCTION;
+export const FRAME_HEADER_SIZE = (realModule as any).FRAME_HEADER_SIZE;
+export const FrameType = (realModule as any).FrameType;
+export const TSS_CONTENT_TYPE_FRAMED_VERSIONED_V2 = (realModule as any)
+  .TSS_CONTENT_TYPE_FRAMED_VERSIONED_V2;
