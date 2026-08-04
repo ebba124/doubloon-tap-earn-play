@@ -7,12 +7,20 @@
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+const startClientCoreShim = fileURLToPath(
+  new URL("./src/lib/tanstack-start-client-core-shim.ts", import.meta.url),
+);
+
 export default defineConfig({
-  resolve: {
-    alias: {
-      "@tanstack/start-client-core": fileURLToPath(
-        new URL("./src/lib/tanstack-start-client-core-shim.ts", import.meta.url),
-      ),
+  vite: {
+    resolve: {
+      alias: [
+        { find: "@", replacement: fileURLToPath(new URL("./src", import.meta.url)) },
+        { find: "@tanstack/start-client-core", replacement: startClientCoreShim },
+      ],
+    },
+    ssr: {
+      noExternal: ["@tanstack/start-client-core", "@tanstack/react-start"],
     },
   },
   tanstackStart: {
