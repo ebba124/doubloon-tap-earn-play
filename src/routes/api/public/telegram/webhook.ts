@@ -1,6 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createHash, timingSafeEqual } from "node:crypto";
 
+interface InlineKeyboardButton {
+  text: string;
+  url?: string;
+  web_app?: { url: string };
+  callback_data?: string;
+}
+
+interface ReplyMarkup {
+  inline_keyboard: InlineKeyboardButton[][];
+}
+
+interface TelegramMessagePayload {
+  chat_id: number | string;
+  text: string;
+  parse_mode: "HTML" | "Markdown" | "MarkdownV2";
+  reply_markup: ReplyMarkup;
+}
+
 function deriveSecret(token: string) {
   return createHash("sha256").update(`telegram-webhook:${token}`).digest("base64url");
 }
@@ -69,33 +87,64 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             ``,
             `More friends. More rewards. More Doubloons. 🚀`,
           ].join("\n");
-          const messagePayload = {
+          const messagePayload: TelegramMessagePayload = {
             chat_id: chatId,
             text: welcome,
             parse_mode: "HTML",
             reply_markup: {
               inline_keyboard: [
-                [{ text: "🎮 Play DoubloonTap", web_app: { url: webAppUrl } }],
-                [{ text: "💪🪙 Join community", url: "https://t.me/Doublooncommunity" }],
-                [{ text: "📢 Announcements channel", url: "https://t.me/Doubloontap" }],
-                [{ text: "🎁 Rewards channel", url: "https://t.me/Doubloonreward" }],
+                [
+                  {
+                    text: "🎮 Play DoubloonTap",
+                    web_app: { url: webAppUrl },
+                  },
+                ],
+                [
+                  {
+                    text: "💪🪙 Join community",
+                    url: "https://t.me/Doublooncommunity",
+                  },
+                ],
+                [
+                  {
+                    text: "📢 Announcements channel",
+                    url: "https://t.me/Doubloontap",
+                  },
+                ],
+                [
+                  {
+                    text: "🎁 Rewards channel",
+                    url: "https://t.me/Doubloonreward",
+                  },
+                ],
               ],
             },
           };
 
           try {
-            const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+            const response = await fetch(apiUrl, {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify(messagePayload),
             });
 
+            const responseData = await response.json();
+
             if (!response.ok) {
-              const error = await response.json();
-              console.error("[telegram-webhook] Failed to send message:", error);
+              console.error("[telegram-webhook] Failed to send message:", {
+                status: response.status,
+                error: responseData,
+                payload: messagePayload,
+              });
+            } else {
+              console.log("[telegram-webhook] Message sent successfully to user", from.id);
             }
           } catch (error) {
-            console.error("[telegram-webhook] Error sending message:", error);
+            console.error(
+              "[telegram-webhook] Error sending message:",
+              error instanceof Error ? error.message : String(error),
+            );
           }
         }
 
