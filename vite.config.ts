@@ -10,13 +10,17 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 const startClientCoreShim = fileURLToPath(
   new URL("./src/lib/tanstack-start-client-core-shim.ts", import.meta.url),
 );
+const startClientCorePkg = fileURLToPath(
+  new URL("./node_modules/@tanstack/start-client-core/dist/esm/", import.meta.url),
+);
 
 export default defineConfig({
   vite: {
     resolve: {
       alias: [
         { find: "@", replacement: fileURLToPath(new URL("./src", import.meta.url)) },
-        { find: "@tanstack/start-client-core", replacement: startClientCoreShim },
+        { find: /^@tanstack\/start-client-core\/(.*)$/, replacement: `${startClientCorePkg}$1` },
+        { find: /^@tanstack\/start-client-core$/, replacement: startClientCoreShim },
       ],
     },
     ssr: {
