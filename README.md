@@ -52,19 +52,20 @@ Single self-contained file, no build step, loaded directly over HTTPS.
 
 ## Current status
 
-| Piece | Status |
-|---|---|
-| Front-end UI (all 4 tabs) | ✅ Built |
-| Backend API + database | ✅ Built and tested |
-| Front-end ↔ backend connection | ⏳ Not yet wired — HTML still uses localStorage |
-| Deployment | ⏳ Needs hosting (front-end + backend separately) |
-| Real USDT payout execution | ⏳ Requests are logged only; needs exchange integration |
+| Piece                          | Status                                                  |
+| ------------------------------ | ------------------------------------------------------- |
+| Front-end UI (all 4 tabs)      | ✅ Built                                                |
+| Backend API + database         | ✅ Built and tested                                     |
+| Front-end ↔ backend connection | ⏳ Not yet wired — HTML still uses localStorage         |
+| Deployment                     | ⏳ Needs hosting (front-end + backend separately)       |
+| Real USDT payout execution     | ⏳ Requests are logged only; needs exchange integration |
 
 ---
 
 ## Roadmap to a mature, production-grade system
 
 ### Security & infrastructure
+
 - Rate limiting per verified user (not per IP)
 - Schema validation on every request body (zod/joi)
 - Withdrawal address format validation per network
@@ -78,6 +79,7 @@ Single self-contained file, no build step, loaded directly over HTTPS.
 - Unit + integration test suite, CI pipeline (GitHub Actions)
 
 ### Payments (to make withdrawals real)
+
 - A funded exchange/custodial wallet account
 - Exchange institutional/merchant payout API integration (not personal API keys)
 - KYC/identity verification before withdrawal (Sumsub, Onfido, etc.)
@@ -85,6 +87,7 @@ Single self-contained file, no build step, loaded directly over HTTPS.
 - Legal review of money-transmission regulations in your jurisdiction
 
 ### Engagement & retention features
+
 - Global + friends leaderboard
 - Daily rotating quests (separate from one-time Tasks)
 - Offline earnings ("You earned X while away")
@@ -92,23 +95,27 @@ Single self-contained file, no build step, loaded directly over HTTPS.
 - Daily spin wheel / chest for small random bonuses
 
 ### Social & growth features
+
 - Referral tiers (bigger bonuses unlocked at invite milestones, beyond the 50-friend one)
 - Squads/clans with group leaderboards
 - Shareable stats card for posting outside Telegram
 - **Telegram Stars integration** — Telegram's native in-app currency; genuinely real, simple payments (Telegram handles the transaction, you just verify it) for selling boosts/energy refills — far simpler than exchange/crypto integration
 
 ### Progression systems
+
 - XP/levels separate from balance, with cosmetic unlocks
 - Achievements/badges
 - Seasonal events (time-limited multipliers or visual themes)
 
 ### Quality-of-life polish
+
 - Bot-sent notifications ("Energy full!", "Streak resets in 1 hour")
 - Settings tab (language, notifications, reset progress)
 - Multi-language support (Afaan Oromo + English via a simple i18n layer)
 - Tap sound effects (toggleable)
 
 ### Admin/operator tools
+
 - Broadcast tool for announcements via the bot
 - Config-driven economy (reward/cost values in a config table, not hardcoded)
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -35,8 +36,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Doubloon Tap — Tap to Earn DBL" },
       {
         property: "og:description",
-        content:
-          "Tap. Boost. Invite. Withdraw. Play Doubloon Tap on Telegram.",
+        content: "Tap. Boost. Invite. Withdraw. Play Doubloon Tap on Telegram.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -112,10 +112,7 @@ function AuthError({ message, onRetry }: { message: string; onRetry?: () => void
       <h1 className="text-xl font-bold">Open inside Telegram</h1>
       <p className="text-sm text-[var(--muted-foreground)]">
         Doubloon Tap is a Telegram Mini App. Launch it from{" "}
-        <a
-          href="https://t.me/DoubloonTapBot"
-          className="text-[var(--gold)] underline"
-        >
+        <a href="https://t.me/DoubloonTapBot" className="text-[var(--gold)] underline">
           @DoubloonTapBot
         </a>{" "}
         to play.
@@ -199,7 +196,11 @@ function App({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
 
   return (
     <div className="app-shell">
-      <Header user={data.user} onOpenSettings={() => setSettingsOpen(true)} onRefresh={() => refetch()} />
+      <Header
+        user={data.user}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onRefresh={() => refetch()}
+      />
       <InboxPanel session={data} />
       <LevelBar session={data} />
       <ProgressPopups />
@@ -288,7 +289,9 @@ function InboxPanel({ session }: { session: any }) {
       <div className="mb-2 flex items-center justify-between">
         <div>
           <div className="text-sm font-bold">📥 Inbox</div>
-          <div className="text-xs text-[var(--muted-foreground)]">Smart reminders for your next move</div>
+          <div className="text-xs text-[var(--muted-foreground)]">
+            Smart reminders for your next move
+          </div>
         </div>
         <span className="rounded-full bg-[var(--gold)]/20 px-2 py-1 text-[10px] font-semibold text-[var(--gold)]">
           {items.length} new
@@ -411,13 +414,10 @@ function EarnTab({ session }: { session: any }) {
     },
     onError: (e: any) => {
       haptic("medium");
-      getWebApp()?.showAlert?.(
-        e?.message ?? "You must join all our channels before claiming.",
-      );
+      getWebApp()?.showAlert?.(e?.message ?? "You must join all our channels before claiming.");
       qc.invalidateQueries({ queryKey: ["session"] });
     },
   });
-
 
   const canDaily = useMemo(() => {
     if (!session.user.last_daily_claim) return true;
@@ -435,7 +435,6 @@ function EarnTab({ session }: { session: any }) {
       />
       <ChannelGate session={session} />
       <div className="balance-hero">
-
         <span>🪙</span>
         <span>{formatNum(localBalance)}</span>
         <span className="text-sm text-[var(--muted-foreground)] font-semibold">DBL</span>
@@ -458,18 +457,10 @@ function EarnTab({ session }: { session: any }) {
 
       <StreakCard session={session} />
 
-      <div
-        className="relative"
-        onPointerDown={handleTap}
-        style={{ touchAction: "manipulation" }}
-      >
+      <div className="relative" onPointerDown={handleTap} style={{ touchAction: "manipulation" }}>
         <div className="coin-btn">D</div>
         {floats.map((f) => (
-          <div
-            key={f.id}
-            className="tap-float"
-            style={{ left: f.x, top: f.y }}
-          >
+          <div key={f.id} className="tap-float" style={{ left: f.x, top: f.y }}>
             +{f.v}
           </div>
         ))}
@@ -487,8 +478,7 @@ function EarnTab({ session }: { session: any }) {
             className="h-full"
             style={{
               width: `${(localEnergy / session.user.energy_max) * 100}%`,
-              background:
-                "linear-gradient(90deg, var(--gold-dark), var(--gold))",
+              background: "linear-gradient(90deg, var(--gold-dark), var(--gold))",
               transition: "width 300ms ease",
             }}
           />
@@ -499,17 +489,13 @@ function EarnTab({ session }: { session: any }) {
         <div className="stat-card">
           <div className="text-xs text-[var(--muted-foreground)]">Per tap</div>
           <div className="font-bold text-lg">
-            +
-            {Number(session.user.tap_value) *
-              Number(session.user.tap_multiplier_permanent || 1)}{" "}
+            +{Number(session.user.tap_value) * Number(session.user.tap_multiplier_permanent || 1)}{" "}
             DBL
           </div>
         </div>
         <div className="stat-card">
           <div className="text-xs text-[var(--muted-foreground)]">Total XP</div>
-          <div className="font-bold text-lg">
-            ✨ {formatNum(Number(session.user.xp ?? 0))}
-          </div>
+          <div className="font-bold text-lg">✨ {formatNum(Number(session.user.xp ?? 0))}</div>
         </div>
       </div>
     </div>
@@ -527,11 +513,7 @@ function ChannelGate({ session }: { session: any }) {
           Subscription is required for every user before claiming any reward.
         </div>
         {session.membership.missing.map((c: any) => (
-          <button
-            key={c.chat}
-            className="ghost-btn"
-            onClick={() => openTelegramUrl(c.url)}
-          >
+          <button key={c.chat} className="ghost-btn" onClick={() => openTelegramUrl(c.url)}>
             Join {c.label}
           </button>
         ))}
@@ -550,8 +532,7 @@ function TasksTab({ session }: { session: any }) {
   const qc = useQueryClient();
   const completeFn = useServerFn(completeTask);
   const mut = useMutation({
-    mutationFn: (taskId: string) =>
-      completeFn({ data: { initData: getInitData(), taskId } }),
+    mutationFn: (taskId: string) => completeFn({ data: { initData: getInitData(), taskId } }),
     onSuccess: () => {
       haptic("medium");
       playClaim();
@@ -588,8 +569,8 @@ function TasksTab({ session }: { session: any }) {
               </div>
               {!done && locked && (
                 <div className="text-xs mt-1" style={{ color: "#ff6b6b" }}>
-                  🔒 Not joined yet — you must join {t.chat ?? "all required channels"} to
-                  claim this reward.
+                  🔒 Not joined yet — you must join {t.chat ?? "all required channels"} to claim
+                  this reward.
                 </div>
               )}
               {!done && !locked && t.kind === "channel" && (
@@ -600,10 +581,7 @@ function TasksTab({ session }: { session: any }) {
               <span className="badge">✓ Done</span>
             ) : t.kind === "channel" ? (
               <div className="flex flex-col gap-2">
-                <button
-                  className="ghost-btn"
-                  onClick={() => openTelegramUrl(t.url)}
-                >
+                <button className="ghost-btn" onClick={() => openTelegramUrl(t.url)}>
                   Join
                 </button>
                 <button
@@ -632,9 +610,7 @@ function TasksTab({ session }: { session: any }) {
                 onClick={() => {
                   if (locked) {
                     haptic("medium");
-                    getWebApp()?.showAlert?.(
-                      "Join all required channels first to unlock rewards.",
-                    );
+                    getWebApp()?.showAlert?.("Join all required channels first to unlock rewards.");
                     return;
                   }
                   mut.mutate(t.id);
@@ -651,12 +627,9 @@ function TasksTab({ session }: { session: any }) {
   );
 }
 
-
 function FriendsTab({ session }: { session: any }) {
   const link = `https://t.me/${session.config.botUsername}?start=ref_${session.user.id}`;
-  const shareText = encodeURIComponent(
-    `🪙 Join me on Doubloon Tap and earn DBL! ${link}`,
-  );
+  const shareText = encodeURIComponent(`🪙 Join me on Doubloon Tap and earn DBL! ${link}`);
   const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${shareText}`;
   const [copied, setCopied] = useState(false);
 
@@ -674,15 +647,14 @@ function FriendsTab({ session }: { session: any }) {
                 await navigator.clipboard.writeText(link);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1200);
-              } catch {}
+              } catch (e) {
+                // Clipboard access may fail silently
+              }
             }}
           >
             {copied ? "Copied ✓" : "Copy"}
           </button>
-          <button
-            className="primary-btn flex-1"
-            onClick={() => openTelegramUrl(shareUrl)}
-          >
+          <button className="primary-btn flex-1" onClick={() => openTelegramUrl(shareUrl)}>
             Share
           </button>
         </div>
@@ -767,7 +739,10 @@ function BoostsTab({ session }: { session: any }) {
     <div className="px-4 flex flex-col gap-3">
       <h2 className="text-xl font-bold">Boosts</h2>
       <div className="text-sm text-[var(--muted-foreground)]">
-        Balance: <span className="text-[var(--gold)] font-bold">{formatNum(Number(session.user.balance))} DBL</span>
+        Balance:{" "}
+        <span className="text-[var(--gold)] font-bold">
+          {formatNum(Number(session.user.balance))} DBL
+        </span>
       </div>
       {session.boosts.map((b: any) => {
         const lvl = level(b.id);
@@ -919,8 +894,7 @@ function WalletTab({ session }: { session: any }) {
             <div key={w.id} className="list-row">
               <div>
                 <div className="font-semibold">
-                  {formatNum(Number(w.amount_dbl))} DBL ·{" "}
-                  {Number(w.amount_usdt).toFixed(2)} USDT
+                  {formatNum(Number(w.amount_dbl))} DBL · {Number(w.amount_usdt).toFixed(2)} USDT
                 </div>
                 <div className="text-xs text-[var(--muted-foreground)]">
                   {w.method} · {new Date(w.created_at).toLocaleDateString()}
@@ -957,7 +931,14 @@ function Leaderboard() {
 
   const blended = useMemo(() => {
     const fakeEntries = [
-      { id: 90001, rank: 0, first_name: "Nova", username: "nova", balance: 1_250_000, photo_url: "" },
+      {
+        id: 90001,
+        rank: 0,
+        first_name: "Nova",
+        username: "nova",
+        balance: 1_250_000,
+        photo_url: "",
+      },
       { id: 90002, rank: 0, first_name: "Mina", username: "mina", balance: 980_000, photo_url: "" },
       { id: 90003, rank: 0, first_name: "Rex", username: "rex", balance: 870_000, photo_url: "" },
       { id: 90004, rank: 0, first_name: "Luna", username: "luna", balance: 720_000, photo_url: "" },
@@ -993,9 +974,7 @@ function Leaderboard() {
               {u.first_name ?? u.username ?? `#${u.id}`}
             </div>
           </div>
-          <div className="text-sm font-bold text-[var(--gold)]">
-            {formatNum(Number(u.balance))}
-          </div>
+          <div className="text-sm font-bold text-[var(--gold)]">{formatNum(Number(u.balance))}</div>
         </div>
       ))}
     </div>
@@ -1031,4 +1010,3 @@ function TabBar({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
     </nav>
   );
 }
-

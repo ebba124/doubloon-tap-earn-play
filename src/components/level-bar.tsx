@@ -1,3 +1,18 @@
+interface ProgressionData {
+  level?: number;
+  title?: string;
+  pct?: number;
+  xpIntoLevel?: number;
+  xpForNext?: number;
+}
+
+interface LevelBarSessionData {
+  progression?: ProgressionData;
+  user?: {
+    gems?: number;
+  };
+}
+
 function formatNum(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
   if (n >= 10_000) return (n / 1000).toFixed(1) + "K";
@@ -5,8 +20,14 @@ function formatNum(n: number) {
 }
 
 /** Compact level chip + XP bar + gem balance, shown under the header. */
-export function LevelBar({ session }: { session: any }) {
-  const p = session.progression ?? { level: 1, title: "Stowaway", pct: 0, xpIntoLevel: 0, xpForNext: 0 };
+export function LevelBar({ session }: { session: LevelBarSessionData }) {
+  const p = session.progression ?? {
+    level: 1,
+    title: "Stowaway",
+    pct: 0,
+    xpIntoLevel: 0,
+    xpForNext: 0,
+  };
   const gems = Number(session.user.gems ?? 0);
   const maxed = p.xpForNext === 0;
 

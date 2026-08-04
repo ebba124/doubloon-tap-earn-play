@@ -50,8 +50,8 @@ function AdminPage() {
         <h1 className="font-bold text-xl">Admin</h1>
         <p className="text-[var(--destructive)] mt-2">{(me.error as Error).message}</p>
         <p className="text-sm text-[var(--muted-foreground)] mt-2">
-          Open inside Telegram as a staff member. Superadmins are configured via
-          ADMIN_TELEGRAM_IDS; other roles are granted from this page.
+          Open inside Telegram as a staff member. Superadmins are configured via ADMIN_TELEGRAM_IDS;
+          other roles are granted from this page.
         </p>
       </div>
     );
@@ -77,7 +77,9 @@ function AdminPage() {
         </div>
       </header>
 
-      {perms.includes("overview:view") && <OverviewSection canReview={perms.includes("withdrawals:review")} />}
+      {perms.includes("overview:view") && (
+        <OverviewSection canReview={perms.includes("withdrawals:review")} />
+      )}
       {perms.includes("economy:edit") && <EconomySection />}
       {perms.includes("roles:manage") && <RolesSection />}
     </div>
@@ -113,7 +115,7 @@ function OverviewSection({ canReview }: { canReview: boolean }) {
         </div>
       </div>
       <h2 className="font-bold mb-2">Withdrawals</h2>
-      {d.withdrawals.map((w: any) => (
+      {d.withdrawals.map((w: Record<string, unknown>) => (
         <div key={w.id} className="list-row mb-2 flex-col items-stretch">
           <div className="flex justify-between">
             <div>
@@ -222,17 +224,13 @@ function EconomySection() {
           </div>
         )}
       </div>
-      {(q.data?.settings ?? []).map((s: any) => (
+      {(q.data?.settings ?? []).map((s: Record<string, unknown>) => (
         <div key={s.key} className="list-row mb-2">
           <div>
             <div className="font-semibold">{s.key}</div>
-            <div className="text-xs text-[var(--muted-foreground)]">
-              {JSON.stringify(s.value)}
-            </div>
+            <div className="text-xs text-[var(--muted-foreground)]">{JSON.stringify(s.value)}</div>
           </div>
-          <div className="text-xs text-[var(--muted-foreground)]">
-            by {s.updated_by ?? "—"}
-          </div>
+          <div className="text-xs text-[var(--muted-foreground)]">by {s.updated_by ?? "—"}</div>
         </div>
       ))}
     </section>

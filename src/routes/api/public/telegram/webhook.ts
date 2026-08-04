@@ -54,8 +54,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
 
           // Send welcome message via Bot API
           const chatId = msg.chat?.id ?? from.id;
-          const webAppUrl =
-            process.env.PUBLIC_APP_URL ?? "https://doubloon-tap-quest.lovable.app";
+          const webAppUrl = process.env.PUBLIC_APP_URL ?? "https://doubloon-tap-quest.lovable.app";
           const name = from.username ? `@${from.username}` : (from.first_name ?? "there");
           const welcome = [
             `👋 Hey, ${name}! Welcome to <b>DoubloonTap</b>!`,
@@ -74,28 +73,23 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             chat_id: chatId,
             text: welcome,
             parse_mode: "HTML",
-            reply_markup: JSON.stringify({
+            reply_markup: {
               inline_keyboard: [
                 [{ text: "🎮 Play DoubloonTap", web_app: { url: webAppUrl } }],
                 [{ text: "💪🪙 Join community", url: "https://t.me/Doublooncommunity" }],
                 [{ text: "📢 Announcements channel", url: "https://t.me/Doubloontap" }],
                 [{ text: "🎁 Rewards channel", url: "https://t.me/Doubloonreward" }],
               ],
-            }),
+            },
           };
 
           try {
             const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
               method: "POST",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                ...messagePayload,
-                reply_markup: typeof messagePayload.reply_markup === 'string' 
-                  ? JSON.parse(messagePayload.reply_markup)
-                  : messagePayload.reply_markup,
-              }),
+              body: JSON.stringify(messagePayload),
             });
-            
+
             if (!response.ok) {
               const error = await response.json();
               console.error("[telegram-webhook] Failed to send message:", error);
@@ -103,9 +97,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           } catch (error) {
             console.error("[telegram-webhook] Error sending message:", error);
           }
-
         }
-
 
         return Response.json({ ok: true });
       },

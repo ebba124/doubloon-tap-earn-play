@@ -12,6 +12,30 @@ interface Prize {
   color: string;
 }
 
+interface SpinWheelSessionData {
+  config: {
+    spinPrizes?: Prize[];
+    spinCooldownSec?: number;
+  };
+  nextSpinAt?: string | null;
+  user?: {
+    balance?: number;
+  };
+  membership?: {
+    ok?: boolean;
+  };
+}
+
+interface SpinResult {
+  prizeIndex: number;
+  cooldown?: boolean;
+  nextSpinAt?: string;
+  amount: number;
+  user?: {
+    balance?: number;
+  };
+}
+
 const SIZE = 220;
 const C = SIZE / 2;
 const R = 104;
@@ -37,7 +61,7 @@ function fmtCountdown(ms: number) {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
-export function SpinWheel({ session }: { session: any }) {
+export function SpinWheel({ session }: { session: SpinWheelSessionData }) {
   const qc = useQueryClient();
   const spinFn = useServerFn(spin);
   const prizes: Prize[] = session.config.spinPrizes ?? [];
@@ -63,9 +87,12 @@ export function SpinWheel({ session }: { session: any }) {
     return () => clearInterval(i);
   }, []);
 
-  useEffect(() => () => {
-    if (tickRef.current) clearInterval(tickRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (tickRef.current) clearInterval(tickRef.current);
+    },
+    [],
+  );
 
   const remainingMs = nextSpinAt ? new Date(nextSpinAt).getTime() - now : 0;
   const ready = remainingMs <= 0;
@@ -85,7 +112,7 @@ export function SpinWheel({ session }: { session: any }) {
 
   const mut = useMutation({
     mutationFn: () => spinFn({ data: { initData: getInitData(), nonce: makeNonce() } }),
-    onSuccess: (r) => {
+    onSuccess: (r: SpinResult) => {
       if (r.prizeIndex < 0) {
         setSpinning(false);
         if (tickRef.current) clearInterval(tickRef.current);
@@ -101,7 +128,7 @@ export function SpinWheel({ session }: { session: any }) {
 
       // Animate the wheel to land on the winning segment.
       const center = r.prizeIndex * seg + seg / 2;
-      const targetMod = ((360 - center) % 360 + 360) % 360;
+      const targetMod = (((360 - center) % 360) + 360) % 360;
       const jitter = (Math.random() - 0.5) * seg * 0.6;
       setRotation((prev) => prev - (prev % 360) + 360 * 5 + targetMod + jitter);
 
@@ -120,17 +147,17 @@ export function SpinWheel({ session }: { session: any }) {
         setNextSpinAt(r.nextSpinAt ?? null);
         haptic("heavy");
         playWin();
-        qc.setQueryData(["session"], (prev: any) =>
+        qc.setQueryData(["session"], (prev: SpinWheelSessionData | undefined) =>
           prev ? { ...prev, user: r.user, nextSpinAt: r.nextSpinAt } : prev,
         );
         setWin({ open: true, amount: r.amount });
       }, SPIN_MS);
     },
-    onError: (e: any) => {
+    onError: (e: Error) => {
       setSpinning(false);
       if (tickRef.current) clearInterval(tickRef.current);
       playError();
-      getWebApp()?.showAlert?.(e?.message ?? "Spin failed");
+      getWebApp()?.showAlert?.(e.message ?? "Spin failed");
       qc.invalidateQueries({ queryKey: ["session"] });
     },
   });
@@ -148,8 +175,8 @@ export function SpinWheel({ session }: { session: any }) {
       <div className="text-center">
         <h2 className="text-xl font-bold">Lucky Spin</h2>
         <p className="text-sm text-[var(--muted-foreground)]">
-          One free spin every {Math.round((session.config.spinCooldownSec ?? 10800) / 3600)}h.
-          Win up to 25K DBL.
+          One free spin every {Math.round((session.config.spinCooldownSec ?? 10800) / 3600)}h. Win
+          up to 25K DBL.
         </p>
       </div>
 
@@ -160,9 +187,7 @@ export function SpinWheel({ session }: { session: any }) {
           className="wheel-svg"
           style={{
             transform: `rotate(${rotation}deg)`,
-            transition: spinning
-              ? `transform ${SPIN_MS}ms cubic-bezier(0.16, 1, 0.3, 1)`
-              : "none",
+            transition: spinning ? `transform ${SPIN_MS}ms cubic-bezier(0.16, 1, 0.3, 1)` : "none",
           }}
           role="img"
           aria-label="Prize wheel"
@@ -192,7 +217,14 @@ export function SpinWheel({ session }: { session: any }) {
               {s.p.label}
             </text>
           ))}
-          <circle cx={C} cy={C} r={18} fill="oklch(0.22 0.03 55)" stroke="var(--gold)" strokeWidth={3} />
+          <circle
+            cx={C}
+            cy={C}
+            r={18}
+            fill="oklch(0.22 0.03 55)"
+            stroke="var(--gold)"
+            strokeWidth={3}
+          />
         </svg>
       </div>
 

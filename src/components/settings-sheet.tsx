@@ -1,24 +1,6 @@
-import { useSyncExternalStore } from "react";
 import { Volume2, VolumeX, X } from "lucide-react";
-import {
-  isMuted,
-  setMuted,
-  subscribeMuted,
-  primeAudio,
-  playClaim,
-} from "@/lib/sound";
-
-function useMuted() {
-  return useSyncExternalStore(
-    subscribeMuted,
-    () => isMuted(),
-    () => false,
-  );
-}
-
-export function useMutedState() {
-  return useMuted();
-}
+import { setMuted, primeAudio, playClaim } from "@/lib/sound";
+import { useMutedState } from "@/lib/use-muted-state";
 
 export function SettingsSheet({
   open,
@@ -29,7 +11,7 @@ export function SettingsSheet({
   onClose: () => void;
   dblPerUsdt: number;
 }) {
-  const muted = useMuted();
+  const muted = useMutedState();
   if (!open) return null;
 
   return (
@@ -42,7 +24,12 @@ export function SettingsSheet({
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold">Settings</h2>
-          <button className="ghost-btn" style={{ padding: 8 }} aria-label="Close settings" onClick={onClose}>
+          <button
+            className="ghost-btn"
+            style={{ padding: 8 }}
+            aria-label="Close settings"
+            onClick={onClose}
+          >
             <X size={18} />
           </button>
         </div>
@@ -76,9 +63,7 @@ export function SettingsSheet({
 
         <div className="stat-card mt-3">
           <div className="text-xs text-[var(--muted-foreground)]">Exchange rate</div>
-          <div className="font-bold text-[var(--gold)]">
-            {dblPerUsdt.toLocaleString()} DBL = $1
-          </div>
+          <div className="font-bold text-[var(--gold)]">{dblPerUsdt.toLocaleString()} DBL = $1</div>
         </div>
       </div>
     </div>
