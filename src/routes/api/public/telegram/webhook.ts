@@ -74,21 +74,26 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             chat_id: chatId,
             text: welcome,
             parse_mode: "HTML",
-            reply_markup: {
+            reply_markup: JSON.stringify({
               inline_keyboard: [
                 [{ text: "🎮 Play DoubloonTap", web_app: { url: webAppUrl } }],
                 [{ text: "💪🪙 Join community", url: "https://t.me/Doublooncommunity" }],
                 [{ text: "📢 Announcements channel", url: "https://t.me/Doubloontap" }],
                 [{ text: "🎁 Rewards channel", url: "https://t.me/Doubloonreward" }],
               ],
-            },
+            }),
           };
 
           try {
             const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
               method: "POST",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify(messagePayload),
+              body: JSON.stringify({
+                ...messagePayload,
+                reply_markup: typeof messagePayload.reply_markup === 'string' 
+                  ? JSON.parse(messagePayload.reply_markup)
+                  : messagePayload.reply_markup,
+              }),
             });
             
             if (!response.ok) {
