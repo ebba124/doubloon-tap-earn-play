@@ -22,8 +22,8 @@ export interface TgWebApp {
     notificationOccurred: (type: "error" | "success" | "warning") => void;
     selectionChanged: () => void;
   };
-  openTelegramLink: (url: string) => void;
-  openLink: (url: string) => void;
+  openTelegramLink?: (url: string) => void;
+  openLink?: (url: string) => void;
   showAlert: (msg: string) => void;
   showPopup: (opts: { title?: string; message: string; buttons?: unknown[] }) => void;
   MainButton: {
@@ -68,6 +68,43 @@ export function getInitData(): string {
 
 export function haptic(kind: "light" | "medium" | "heavy" = "light") {
   getWebApp()?.HapticFeedback?.impactOccurred(kind);
+}
+
+/**
+ * Robustly opens a link from inside the Mini App. The bare
+ * `openTelegramLink?.(...)` calls used before silently did nothing whenever the
+ * method was unavailable (SDK not ready, opened in a browser, or an older
+ * client). This tries every available path so the buttons always work:
+ *   1. `openTelegramLink` for t.me links (keeps the user inside Telegram)
+ *   2. `openLink` for anything else
+ *   3. a plain `window.open` / location change fallback
+ */
+export function openLink(url: string) {
+  if (!url) return;
+  const tg = getWebApp();
+  const isTelegramLink = /^https?:\/\/(t\.me|telegram\.me)\//i.test(url);
+
+  try {
+    if (tg && isTelegramLink && typeof tg.openTelegramLink === "function") {
+      tg.openTelegramLink(url);
+      return;
+    }
+    if (tg && typeof tg.openLink === "function") {
+      tg.openLink(url);
+      return;
+    }
+    if (tg && isTelegramLink && typeof tg.openTelegramLink === "function") {
+      tg.openTelegramLink(url);
+      return;
+    }
+  } catch {
+    // fall through to the browser fallback below
+  }
+
+  if (typeof window !== "undefined") {
+    const win = window.open(url, "_blank", "noopener,noreferrer");
+    if (!win) window.location.href = url;
+  }
 }
 
 export function makeNonce() {

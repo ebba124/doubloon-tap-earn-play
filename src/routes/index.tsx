@@ -11,7 +11,7 @@ import {
   requestWithdraw,
   getLeaderboard,
 } from "@/lib/game.functions";
-import { getInitData, getWebApp, haptic, makeNonce } from "@/lib/telegram-webapp";
+import { getInitData, getWebApp, haptic, makeNonce, openLink } from "@/lib/telegram-webapp";
 import { SpinWheel } from "@/components/spin-wheel";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { WinOverlay } from "@/components/win-overlay";
@@ -21,6 +21,7 @@ import { LevelBar } from "@/components/level-bar";
 import { StreakCard } from "@/components/streak-card";
 import { AchievementsPanel } from "@/components/achievements-panel";
 import { ProgressPopups } from "@/components/progress-popups";
+import { LiveStats } from "@/components/live-stats";
 import { pushProgress } from "@/lib/progress-bus";
 
 export const Route = createFileRoute("/")({
@@ -314,6 +315,7 @@ function EarnTab({ session }: { session: any }) {
         onClose={() => setDailyWin({ open: false, amount: 0 })}
       />
       <ChannelGate session={session} />
+      <LiveStats />
       <div className="balance-hero">
 
         <span>🪙</span>
@@ -410,7 +412,10 @@ function ChannelGate({ session }: { session: any }) {
           <button
             key={c.chat}
             className="ghost-btn"
-            onClick={() => getWebApp()?.openTelegramLink?.(c.url)}
+            onClick={() => {
+              haptic("light");
+              openLink(c.url);
+            }}
           >
             Join {c.label}
           </button>
@@ -432,9 +437,17 @@ function TasksTab({ session }: { session: any }) {
   const mut = useMutation({
     mutationFn: (taskId: string) =>
       completeFn({ data: { initData: getInitData(), taskId } }),
-    onSuccess: () => {
+    onSuccess: (r: any) => {
       haptic("medium");
       playClaim();
+      // Apply the fresh balance/user immediately so the reward shows up right
+      // away, then refetch to sync everything else (tasksDone, achievements…).
+      if (r?.user) {
+        qc.setQueryData(["session"], (prev: any) =>
+          prev ? { ...prev, user: r.user } : prev,
+        );
+      }
+      pushProgress(r?.progress);
       qc.invalidateQueries({ queryKey: ["session"] });
     },
     onError: (e: any) => {
@@ -482,7 +495,10 @@ function TasksTab({ session }: { session: any }) {
               <div className="flex flex-col gap-2">
                 <button
                   className="ghost-btn"
-                  onClick={() => getWebApp()?.openTelegramLink?.(t.url)}
+                  onClick={() => {
+                    haptic("light");
+                    openLink(t.url);
+                  }}
                 >
                   Join
                 </button>
@@ -561,7 +577,10 @@ function FriendsTab({ session }: { session: any }) {
           </button>
           <button
             className="primary-btn flex-1"
-            onClick={() => getWebApp()?.openTelegramLink?.(shareUrl)}
+            onClick={() => {
+              haptic("light");
+              openLink(shareUrl);
+            }}
           >
             Share
           </button>
@@ -729,6 +748,8 @@ function WalletTab({ session }: { session: any }) {
           ≈ {(Number(session.user.balance) / session.config.dblPerUsdt).toFixed(2)} USDT
         </div>
       </div>
+
+      <LiveStats />
 
       <div className="stat-card flex flex-col gap-3">
         <div>
