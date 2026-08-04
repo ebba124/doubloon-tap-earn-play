@@ -70,22 +70,24 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             ``,
             `More friends. More rewards. More Doubloons. 🚀`,
           ].join("\n");
+          const messagePayload: Record<string, unknown> = {
+            chat_id: chatId,
+            text: welcome,
+            parse_mode: "HTML",
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "🎮 Play DoubloonTap", web_app: { url: webAppUrl } }],
+                [{ text: "💪🪙 Join community", url: "https://t.me/Doublooncommunity" }],
+                [{ text: "📢 Announcements channel", url: "https://t.me/Doubloontap" }],
+                [{ text: "🎁 Rewards channel", url: "https://t.me/Doubloonreward" }],
+              ],
+            },
+          };
+
           await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              chat_id: chatId,
-              text: welcome,
-              parse_mode: "HTML",
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: "🎮 Play DoubloonTap", web_app: { url: webAppUrl } }],
-                  [{ text: "💪🪙 Join community", url: "https://t.me/Doublooncommunity" }],
-                  [{ text: "📢 Announcements channel", url: "https://t.me/Doubloontap" }],
-                  [{ text: "🎁 Rewards channel", url: "https://t.me/Doubloonreward" }],
-                ],
-              },
-            }),
+            body: JSON.stringify(messagePayload),
           }).catch(() => {});
 
         }
