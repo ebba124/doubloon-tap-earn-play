@@ -1,5 +1,7 @@
 import { createStart } from "@tanstack/react-start";
 
+import "./lib/tanstack-start-client-core-shim";
+
 export function patchTanStackStartRuntime() {
   try {
     const mod = globalThis as typeof globalThis & {
