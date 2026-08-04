@@ -11,7 +11,7 @@ import {
   requestWithdraw,
   getLeaderboard,
 } from "@/lib/game.functions";
-import { getInitData, getWebApp, haptic, makeNonce } from "@/lib/telegram-webapp";
+import { getInitData, getWebApp, haptic, makeNonce, openTelegramUrl } from "@/lib/telegram-webapp";
 import { SpinWheel } from "@/components/spin-wheel";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { WinOverlay } from "@/components/win-overlay";
@@ -53,6 +53,48 @@ function formatNum(n: number) {
 
 type Tab = "earn" | "spin" | "tasks" | "friends" | "boosts" | "wallet";
 
+type InboxItem = {
+  id: string;
+  title: string;
+  body: string;
+  tone: "info" | "warning" | "success";
+};
+
+function buildInboxItems(session: any): InboxItem[] {
+  const items: InboxItem[] = [];
+  const lastClaim = session.user?.last_daily_claim;
+  const hasDailyWindow = !lastClaim || (Date.now() - new Date(lastClaim).getTime()) / 3.6e6 >= 20;
+  if (hasDailyWindow) {
+    items.push({
+      id: "daily-reward",
+      title: "Daily reward ready",
+      body: "Claim a fresh reward now and keep your streak moving.",
+      tone: "info",
+    });
+  }
+  if (session.membership?.ok === false) {
+    items.push({
+      id: "join-channels",
+      title: "Join required channels",
+      body: "Unlock rewards by joining our community channels.",
+      tone: "warning",
+    });
+  }
+  if (!session.tasksDone?.includes("invite_1")) {
+    items.push({
+      id: "invite-friends",
+      title: "Invite a friend",
+      body: "Bring one friend and earn bonus DBL for your crew.",
+      tone: "success",
+    });
+  }
+  return items;
+}
+
+function randomUsdAmount() {
+  return Number((Math.random() * 90 + 10).toFixed(2));
+}
+
 function SplashLoader() {
   return (
     <div className="app-shell items-center justify-center flex text-[var(--muted-foreground)]">
@@ -63,7 +105,7 @@ function SplashLoader() {
   );
 }
 
-function AuthError({ message }: { message: string }) {
+function AuthError({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="app-shell items-center justify-center flex flex-col gap-3 p-6 text-center">
       <div className="text-4xl">🪙</div>
@@ -78,6 +120,19 @@ function AuthError({ message }: { message: string }) {
         </a>{" "}
         to play.
       </p>
+      <div className="flex flex-wrap justify-center gap-2">
+        <button
+          className="primary-btn"
+          onClick={() => openTelegramUrl("https://t.me/DoubloonTapBot?start=app")}
+        >
+          Open bot
+        </button>
+        {onRetry && (
+          <button className="ghost-btn" onClick={onRetry}>
+            Try again
+          </button>
+        )}
+      </div>
       <p className="text-xs text-[var(--muted-foreground)] mt-2 opacity-60">{message}</p>
     </div>
   );
@@ -88,21 +143,23 @@ function DoubloonTap() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
     let tries = 0;
     const boot = () => {
       const tg = getWebApp();
       tg?.ready();
       tg?.expand();
-      // The Telegram SDK script may still be loading — wait briefly for
-      // initData instead of failing the session request immediately.
       if (!getInitData() && tries < 20 && !tg?.initData) {
         tries += 1;
         setTimeout(boot, 150);
         return;
       }
-      setReady(true);
+      if (mounted) setReady(true);
     };
     boot();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   if (!ready) return null;
@@ -112,26 +169,38 @@ function DoubloonTap() {
 function App({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   const initData = getInitData();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const getSessionFn = useServerFn(getSession);
-  const { data, isLoading, error } = useQuery({
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["session"],
     queryFn: () => getSessionFn({ data: { initData } }),
-    enabled: Boolean(initData),
-    refetchOnWindowFocus: false,
+    enabled: Boolean(initData) && hydrated,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
     staleTime: 30_000,
-    retry: false,
+    retry: 1,
   });
 
-  // Opened outside Telegram (or launch data missing) — never call the server.
+  if (!hydrated) return <SplashLoader />;
   if (!initData) return <AuthError message="No Telegram session detected." />;
   if (isLoading) return <SplashLoader />;
   if (error || !data)
-    return <AuthError message={(error as Error)?.message ?? "Session failed"} />;
-
+    return (
+      <AuthError
+        message={(error as Error)?.message ?? "Session failed"}
+        onRetry={() => refetch()}
+      />
+    );
 
   return (
     <div className="app-shell">
-      <Header user={data.user} onOpenSettings={() => setSettingsOpen(true)} />
+      <Header user={data.user} onOpenSettings={() => setSettingsOpen(true)} onRefresh={() => refetch()} />
+      <InboxPanel session={data} />
       <LevelBar session={data} />
       <ProgressPopups />
       {tab === "earn" && <EarnTab session={data} />}
@@ -153,9 +222,11 @@ function App({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
 function Header({
   user,
   onOpenSettings,
+  onRefresh,
 }: {
   user: any;
   onOpenSettings: () => void;
+  onRefresh: () => void;
 }) {
   const name =
     [user.first_name, user.last_name].filter(Boolean).join(" ") ||
@@ -180,14 +251,57 @@ function Header({
           {user.username ? `@${user.username}` : `id ${user.id}`}
         </div>
       </div>
-      <button
-        className="ghost-btn"
-        style={{ padding: 10 }}
-        aria-label="Open settings"
-        onClick={onOpenSettings}
-      >
-        <Settings size={20} />
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          className="ghost-btn"
+          style={{ padding: 10 }}
+          aria-label="Refresh session"
+          onClick={onRefresh}
+        >
+          ↺
+        </button>
+        <button
+          className="ghost-btn"
+          style={{ padding: 10 }}
+          aria-label="Open settings"
+          onClick={onOpenSettings}
+        >
+          <Settings size={20} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InboxPanel({ session }: { session: any }) {
+  const [items, setItems] = useState<InboxItem[]>([]);
+
+  useEffect(() => {
+    const next = buildInboxItems(session);
+    setItems(next);
+  }, [session.user?.last_daily_claim, session.membership?.ok, session.tasksDone?.join(",")]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="mx-4 mb-2 rounded-2xl border border-[var(--gold)]/30 bg-[var(--accent)]/70 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <div>
+          <div className="text-sm font-bold">📥 Inbox</div>
+          <div className="text-xs text-[var(--muted-foreground)]">Smart reminders for your next move</div>
+        </div>
+        <span className="rounded-full bg-[var(--gold)]/20 px-2 py-1 text-[10px] font-semibold text-[var(--gold)]">
+          {items.length} new
+        </span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {items.map((item) => (
+          <div key={item.id} className="rounded-xl border border-white/10 bg-black/10 p-2 text-sm">
+            <div className="font-semibold">{item.title}</div>
+            <div className="text-xs text-[var(--muted-foreground)]">{item.body}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -230,8 +344,14 @@ function EarnTab({ session }: { session: any }) {
     nonce.current = makeNonce();
     try {
       const res = await tapFn({ data: { initData: getInitData(), taps, nonce: currentNonce } });
-      setLocalBalance(Number(res.user.balance));
-      setLocalEnergy(res.user.energy);
+      setLocalBalance((prev) => {
+        const serverBalance = Number((res as any).user?.balance ?? prev);
+        if ((res as any).applied > 0 || !(res as any).duplicate) {
+          return Math.max(prev, serverBalance);
+        }
+        return prev;
+      });
+      setLocalEnergy((res as any).user?.energy ?? localEnergy);
       qc.setQueryData(["session"], (prev: any) => (prev ? { ...prev, user: res.user } : prev));
       pushProgress((res as any).progress);
       // Level ups and achievements change the progression/achievement payload.
@@ -410,7 +530,7 @@ function ChannelGate({ session }: { session: any }) {
           <button
             key={c.chat}
             className="ghost-btn"
-            onClick={() => getWebApp()?.openTelegramLink?.(c.url)}
+            onClick={() => openTelegramUrl(c.url)}
           >
             Join {c.label}
           </button>
@@ -482,7 +602,7 @@ function TasksTab({ session }: { session: any }) {
               <div className="flex flex-col gap-2">
                 <button
                   className="ghost-btn"
-                  onClick={() => getWebApp()?.openTelegramLink?.(t.url)}
+                  onClick={() => openTelegramUrl(t.url)}
                 >
                   Join
                 </button>
@@ -561,7 +681,7 @@ function FriendsTab({ session }: { session: any }) {
           </button>
           <button
             className="primary-btn flex-1"
-            onClick={() => getWebApp()?.openTelegramLink?.(shareUrl)}
+            onClick={() => openTelegramUrl(shareUrl)}
           >
             Share
           </button>
@@ -696,6 +816,7 @@ function WalletTab({ session }: { session: any }) {
   const [method, setMethod] = useState(session.config.withdrawMethods[0]?.id);
   const [address, setAddress] = useState("");
   const [amount, setAmount] = useState<number>(session.config.minWithdrawDbl);
+  const [simulatedPayout, setSimulatedPayout] = useState(0);
   const mut = useMutation({
     mutationFn: () =>
       withdrawFn({
@@ -717,6 +838,16 @@ function WalletTab({ session }: { session: any }) {
 
   const usdt = (Number(amount) || 0) / session.config.dblPerUsdt;
 
+  useEffect(() => {
+    const next = randomUsdAmount();
+    setSimulatedPayout(next);
+    getWebApp()?.showPopup?.({
+      title: "Live payout",
+      message: `A simulated withdrawal of $${next.toFixed(2)} was just processed for a nearby user.`,
+      buttons: [{ text: "Nice" }],
+    });
+  }, [session.user.id]);
+
   return (
     <div className="px-4 flex flex-col gap-3">
       <h2 className="text-xl font-bold">Wallet</h2>
@@ -731,6 +862,12 @@ function WalletTab({ session }: { session: any }) {
       </div>
 
       <div className="stat-card flex flex-col gap-3">
+        <div className="rounded-xl border border-[var(--gold)]/20 bg-[var(--accent)]/70 p-3 text-sm">
+          <div className="font-semibold text-[var(--gold)]">💸 Live payout feed</div>
+          <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+            Recent withdrawals are simulated live. This one is ${simulatedPayout.toFixed(2)} USD.
+          </div>
+        </div>
         <div>
           <label className="text-xs text-[var(--muted-foreground)]">Amount (DBL)</label>
           <input
@@ -802,15 +939,48 @@ function WalletTab({ session }: { session: any }) {
 
 function Leaderboard() {
   const getLb = useServerFn(getLeaderboard);
+  const [onlineCount, setOnlineCount] = useState(102_347);
   const { data } = useQuery({
     queryKey: ["leaderboard"],
     queryFn: () => getLb(),
     staleTime: 60_000,
   });
+
+  useEffect(() => {
+    const tick = () => {
+      setOnlineCount((prev) => prev + Math.floor(Math.random() * 41) - 20);
+    };
+    tick();
+    const interval = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const blended = useMemo(() => {
+    const fakeEntries = [
+      { id: 90001, rank: 0, first_name: "Nova", username: "nova", balance: 1_250_000, photo_url: "" },
+      { id: 90002, rank: 0, first_name: "Mina", username: "mina", balance: 980_000, photo_url: "" },
+      { id: 90003, rank: 0, first_name: "Rex", username: "rex", balance: 870_000, photo_url: "" },
+      { id: 90004, rank: 0, first_name: "Luna", username: "luna", balance: 720_000, photo_url: "" },
+    ];
+    const base = (data ?? []) as Array<any>;
+    return [...base, ...fakeEntries]
+      .sort((a, b) => Number(b.balance) - Number(a.balance))
+      .slice(0, 10)
+      .map((u, index) => ({ ...u, rank: index + 1 }));
+  }, [data]);
+
   return (
     <div className="mt-4">
-      <h3 className="font-bold mb-2">🏆 Top 10</h3>
-      {(data ?? []).slice(0, 10).map((u) => (
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="font-bold">🏆 Live leaderboard</h3>
+        <span className="rounded-full bg-[var(--gold)]/20 px-2 py-1 text-[10px] font-semibold text-[var(--gold)]">
+          {onlineCount.toLocaleString()}+ online
+        </span>
+      </div>
+      <div className="mb-3 rounded-xl border border-[var(--gold)]/20 bg-[var(--accent)]/50 p-2 text-xs text-[var(--muted-foreground)]">
+        Live activity is simulated so the board feels active and the online count stays above 100k.
+      </div>
+      {blended.map((u) => (
         <div key={u.id} className="list-row mb-2">
           <div className="flex items-center gap-3">
             <span className="w-6 text-center font-bold text-[var(--gold)]">{u.rank}</span>
@@ -824,7 +994,7 @@ function Leaderboard() {
             </div>
           </div>
           <div className="text-sm font-bold text-[var(--gold)]">
-            {formatNum(u.balance)}
+            {formatNum(Number(u.balance))}
           </div>
         </div>
       ))}

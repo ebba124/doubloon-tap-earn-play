@@ -70,6 +70,36 @@ export function haptic(kind: "light" | "medium" | "heavy" = "light") {
   getWebApp()?.HapticFeedback?.impactOccurred(kind);
 }
 
+export function openTelegramUrl(url: string) {
+  const normalized = url.trim();
+  const tg = getWebApp();
+
+  if (normalized.startsWith("mailto:")) {
+    if (typeof window !== "undefined") {
+      window.location.href = normalized;
+    }
+    return true;
+  }
+
+  const target = normalized.startsWith("http") ? normalized : `https://${normalized}`;
+
+  if (tg?.openTelegramLink) {
+    tg.openTelegramLink(target);
+    return true;
+  }
+
+  if (tg?.openLink) {
+    tg.openLink(target);
+    return true;
+  }
+
+  if (typeof window !== "undefined") {
+    window.open(target, "_blank", "noopener,noreferrer");
+  }
+
+  return false;
+}
+
 export function makeNonce() {
   return (
     Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-6)
