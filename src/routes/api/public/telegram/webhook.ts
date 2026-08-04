@@ -70,7 +70,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             ``,
             `More friends. More rewards. More Doubloons. 🚀`,
           ].join("\n");
-          const messagePayload: Record<string, unknown> = {
+          const messagePayload = {
             chat_id: chatId,
             text: welcome,
             parse_mode: "HTML",
@@ -84,11 +84,20 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             },
           };
 
-          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(messagePayload),
-          }).catch(() => {});
+          try {
+            const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(messagePayload),
+            });
+            
+            if (!response.ok) {
+              const error = await response.json();
+              console.error("[telegram-webhook] Failed to send message:", error);
+            }
+          } catch (error) {
+            console.error("[telegram-webhook] Error sending message:", error);
+          }
 
         }
 
