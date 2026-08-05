@@ -215,9 +215,11 @@ export async function isChannelMember(chat: string, userId: number): Promise<boo
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ chat_id: chat, user_id: userId }),
   }).catch(() => null);
-  const json = (await res?.json().catch(() => null)) as
-    | { ok?: boolean; result?: { status?: string }; description?: string }
-    | null;
+  const json = (await res?.json().catch(() => null)) as {
+    ok?: boolean;
+    result?: { status?: string };
+    description?: string;
+  } | null;
   if (!json?.ok) {
     console.error("getChatMember failed", chat, json?.description);
     return false;
@@ -238,4 +240,3 @@ export async function checkRequiredChannels(userId: number) {
     channels: results.map((r) => ({ ...r.c, joined: r.ok })),
   };
 }
-

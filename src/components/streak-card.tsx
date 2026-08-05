@@ -1,3 +1,20 @@
+interface StreakData {
+  day?: number;
+  longest?: number;
+  freezes?: number;
+  maxFreezes?: number;
+  multiplier?: number;
+  nextMultiplier?: number;
+  tiers?: Array<{ day: number; multiplier: number }>;
+}
+
+interface StreakCardSessionData {
+  streak?: StreakData;
+  config?: {
+    dailyRewards?: number[];
+  };
+}
+
 function formatNum(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
   if (n >= 10_000) return (n / 1000).toFixed(1) + "K";
@@ -8,7 +25,7 @@ function formatNum(n: number) {
  * Check-in streak summary: current day, active multiplier, banked freezes and
  * the next multiplier tier the player is working toward.
  */
-export function StreakCard({ session }: { session: any }) {
+export function StreakCard({ session }: { session: StreakCardSessionData }) {
   const streak = session.streak ?? { day: 0, longest: 0, freezes: 0, maxFreezes: 3, multiplier: 1 };
   const rewards: number[] = session.config?.dailyRewards ?? [];
   const day = Number(streak.day ?? 0);

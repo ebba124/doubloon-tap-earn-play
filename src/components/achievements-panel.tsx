@@ -1,5 +1,22 @@
 import type { AchievementDef, AchievementStat } from "@/lib/progression";
 
+interface SessionData {
+  achievements?: AchievementDef[];
+  achievementsUnlocked?: Array<{ id: string }>;
+  user: {
+    total_taps?: number;
+    balance?: number;
+  };
+  progression?: {
+    level?: number;
+  };
+  streak?: {
+    longest?: number;
+  };
+  referralCount?: number;
+  tasksDone?: unknown[];
+}
+
 function formatNum(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
   if (n >= 10_000) return (n / 1000).toFixed(1) + "K";
@@ -16,7 +33,7 @@ const STAT_LABEL: Record<AchievementStat, string> = {
   spins: "spins",
 };
 
-export function AchievementsPanel({ session }: { session: any }) {
+export function AchievementsPanel({ session }: { session: SessionData }) {
   const defs: AchievementDef[] = session.achievements ?? [];
   const unlockedIds = new Set<string>(
     (session.achievementsUnlocked ?? []).map((a: { id: string }) => a.id),

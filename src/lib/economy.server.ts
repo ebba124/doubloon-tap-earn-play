@@ -41,8 +41,8 @@ export function pickSpinPrize(): number {
 }
 
 export const DAILY_STREAK_REWARDS: number[] = [
-  500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
-  75_000, 100_000, 150_000, 250_000, 500_000, 1_000_000,
+  500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 75_000, 100_000, 150_000, 250_000, 500_000,
+  1_000_000,
 ];
 
 export interface BoostDef {
@@ -186,7 +186,11 @@ export const BOT_USERNAME = "DoubloonTapBot";
 
 // Channels every user must be subscribed to before claiming any reward.
 export const REQUIRED_CHANNELS: { chat: string; label: string; url: string }[] = [
-  { chat: "@Doublooncommunity", label: "Doubloon Community", url: "https://t.me/Doublooncommunity" },
+  {
+    chat: "@Doublooncommunity",
+    label: "Doubloon Community",
+    url: "https://t.me/Doublooncommunity",
+  },
   { chat: "@Doubloontap", label: "Doubloon Tap Channel", url: "https://t.me/Doubloontap" },
   { chat: "@Doubloonreward", label: "Doubloon Rewards", url: "https://t.me/Doubloonreward" },
 ];

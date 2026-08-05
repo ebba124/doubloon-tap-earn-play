@@ -3,10 +3,7 @@ import { z } from "zod";
 
 export type AdminRole = "superadmin" | "withdraw_reviewer" | "economy_editor";
 export type AdminPermission =
-  | "withdrawals:review"
-  | "economy:edit"
-  | "roles:manage"
-  | "overview:view";
+  "withdrawals:review" | "economy:edit" | "roles:manage" | "overview:view";
 
 const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
   superadmin: ["withdrawals:review", "economy:edit", "roles:manage", "overview:view"],
@@ -46,7 +43,7 @@ async function requirePermission(initData: string, perm: AdminPermission) {
 }
 
 export const adminMe = createServerFn({ method: "POST" })
-  .inputValidator((d: { initData: string }) => z.object({ initData: z.string() }).parse(d))
+  .validator((d: { initData: string }) => z.object({ initData: z.string() }).parse(d))
   .handler(async ({ data }) => {
     const { verifyInitData } = await import("./game.server");
     const v = await verifyInitData(data.initData);
@@ -55,30 +52,22 @@ export const adminMe = createServerFn({ method: "POST" })
   });
 
 export const adminOverview = createServerFn({ method: "POST" })
-  .inputValidator((d: { initData: string }) => z.object({ initData: z.string() }).parse(d))
+  .validator((d: { initData: string }) => z.object({ initData: z.string() }).parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.initData, "overview:view");
     const { db } = await import("./game.server");
     const svc = db();
     const [{ count: users }, { count: pending }, { data: recent }] = await Promise.all([
       svc.from("users").select("*", { count: "exact", head: true }),
-      svc
-        .from("withdrawals")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending"),
+      svc.from("withdrawals").select("*", { count: "exact", head: true }).eq("status", "pending"),
       svc.from("withdrawals").select("*").order("created_at", { ascending: false }).limit(50),
     ]);
     return { userCount: users ?? 0, pendingCount: pending ?? 0, withdrawals: recent ?? [] };
   });
 
 export const adminReviewWithdrawal = createServerFn({ method: "POST" })
-  .inputValidator(
-    (d: {
-      initData: string;
-      id: number;
-      action: "approve" | "reject" | "paid";
-      note?: string;
-    }) =>
+  .validator(
+    (d: { initData: string; id: number; action: "approve" | "reject" | "paid"; note?: string }) =>
       z
         .object({
           initData: z.string(),
@@ -123,7 +112,7 @@ export const adminReviewWithdrawal = createServerFn({ method: "POST" })
   });
 
 export const adminGetEconomy = createServerFn({ method: "POST" })
-  .inputValidator((d: { initData: string }) => z.object({ initData: z.string() }).parse(d))
+  .validator((d: { initData: string }) => z.object({ initData: z.string() }).parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.initData, "economy:edit");
     const { db } = await import("./game.server");
@@ -132,28 +121,29 @@ export const adminGetEconomy = createServerFn({ method: "POST" })
   });
 
 export const adminSetEconomy = createServerFn({ method: "POST" })
-  .inputValidator(
-    (d: { initData: string; key: string; value: unknown }) =>
-      z
-        .object({
-          initData: z.string(),
-          key: z.string().min(1).max(64).regex(/^[a-z0-9_.]+$/i),
-          value: z.unknown(),
-        })
-        .parse(d),
+  .validator((d: { initData: string; key: string; value: unknown }) =>
+    z
+      .object({
+        initData: z.string(),
+        key: z
+          .string()
+          .min(1)
+          .max(64)
+          .regex(/^[a-z0-9_.]+$/i),
+        value: z.unknown(),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     const { verified } = await requirePermission(data.initData, "economy:edit");
     const { db } = await import("./game.server");
     const svc = db();
-    await svc
-      .from("economy_settings")
-      .upsert({
-        key: data.key,
-        value: data.value as never,
-        updated_at: new Date().toISOString(),
-        updated_by: verified.user.id,
-      });
+    await svc.from("economy_settings").upsert({
+      key: data.key,
+      value: data.value as never,
+      updated_at: new Date().toISOString(),
+      updated_by: verified.user.id,
+    });
     await svc.from("audit_log").insert({
       user_id: verified.user.id,
       action: "economy_update",
@@ -162,29 +152,24 @@ export const adminSetEconomy = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-
 export const adminListRoles = createServerFn({ method: "POST" })
-  .inputValidator((d: { initData: string }) => z.object({ initData: z.string() }).parse(d))
+  .validator((d: { initData: string }) => z.object({ initData: z.string() }).parse(d))
   .handler(async ({ data }) => {
     await requirePermission(data.initData, "roles:manage");
     const { db } = await import("./game.server");
-    const { data: rows } = await db()
-      .from("admin_roles")
-      .select("*")
-      .order("telegram_id");
+    const { data: rows } = await db().from("admin_roles").select("*").order("telegram_id");
     return { roles: rows ?? [], envSuperadmins: envSuperadmins() };
   });
 
 export const adminGrantRole = createServerFn({ method: "POST" })
-  .inputValidator(
-    (d: { initData: string; telegramId: number; role: AdminRole }) =>
-      z
-        .object({
-          initData: z.string(),
-          telegramId: z.number().int().positive(),
-          role: z.enum(["superadmin", "withdraw_reviewer", "economy_editor"]),
-        })
-        .parse(d),
+  .validator((d: { initData: string; telegramId: number; role: AdminRole }) =>
+    z
+      .object({
+        initData: z.string(),
+        telegramId: z.number().int().positive(),
+        role: z.enum(["superadmin", "withdraw_reviewer", "economy_editor"]),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     const { verified } = await requirePermission(data.initData, "roles:manage");
@@ -196,15 +181,14 @@ export const adminGrantRole = createServerFn({ method: "POST" })
   });
 
 export const adminRevokeRole = createServerFn({ method: "POST" })
-  .inputValidator(
-    (d: { initData: string; telegramId: number; role: AdminRole }) =>
-      z
-        .object({
-          initData: z.string(),
-          telegramId: z.number().int().positive(),
-          role: z.enum(["superadmin", "withdraw_reviewer", "economy_editor"]),
-        })
-        .parse(d),
+  .validator((d: { initData: string; telegramId: number; role: AdminRole }) =>
+    z
+      .object({
+        initData: z.string(),
+        telegramId: z.number().int().positive(),
+        role: z.enum(["superadmin", "withdraw_reviewer", "economy_editor"]),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     await requirePermission(data.initData, "roles:manage");

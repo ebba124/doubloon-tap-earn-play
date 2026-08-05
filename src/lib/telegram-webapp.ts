@@ -52,7 +52,10 @@ export function getInitData(): string {
   // Fallback: Telegram also passes launch params in the URL hash/query
   // (tgWebAppData) — useful if the SDK script hasn't populated yet.
   if (typeof window !== "undefined") {
-    for (const src of [window.location.hash.replace(/^#/, ""), window.location.search.replace(/^\?/, "")]) {
+    for (const src of [
+      window.location.hash.replace(/^#/, ""),
+      window.location.search.replace(/^\?/, ""),
+    ]) {
       const d = new URLSearchParams(src).get("tgWebAppData");
       if (d) return d;
     }
@@ -101,7 +104,5 @@ export function openTelegramUrl(url: string) {
 }
 
 export function makeNonce() {
-  return (
-    Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-6)
-  );
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-6);
 }

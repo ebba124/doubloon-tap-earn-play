@@ -85,6 +85,7 @@ Real USDT payout execution, KYC, exchange payout API, Telegram Stars, leaderboar
 ---
 
 **Confirm to proceed** and I will:
+
 1. Enable Lovable Cloud.
 2. Ask you to paste the `TELEGRAM_BOT_TOKEN` from @BotFather.
 3. Ship the schema, server fns, UI, and admin page.

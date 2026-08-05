@@ -93,13 +93,7 @@ export const GEMS_WEEKLY_BONUS = 5;
 // --- Achievements -----------------------------------------------------------
 
 export type AchievementStat =
-  | "total_taps"
-  | "level"
-  | "longest_streak"
-  | "referrals"
-  | "tasks"
-  | "balance"
-  | "spins";
+  "total_taps" | "level" | "longest_streak" | "referrals" | "tasks" | "balance" | "spins";
 
 export interface AchievementDef {
   id: string;
@@ -115,36 +109,216 @@ export interface AchievementDef {
 
 export const ACHIEVEMENTS: AchievementDef[] = [
   // Tapping
-  { id: "tap_100", name: "First Doubloons", description: "Tap 100 times.", icon: "🪙", stat: "total_taps", threshold: 100, dbl: 500, gems: 1, xp: 50 },
-  { id: "tap_1k", name: "Deck Grinder", description: "Tap 1,000 times.", icon: "👆", stat: "total_taps", threshold: 1_000, dbl: 2_500, gems: 3, xp: 150 },
-  { id: "tap_10k", name: "Tap Machine", description: "Tap 10,000 times.", icon: "⚡", stat: "total_taps", threshold: 10_000, dbl: 15_000, gems: 10, xp: 500 },
-  { id: "tap_100k", name: "Unstoppable", description: "Tap 100,000 times.", icon: "🌪️", stat: "total_taps", threshold: 100_000, dbl: 100_000, gems: 40, xp: 2_000 },
+  {
+    id: "tap_100",
+    name: "First Doubloons",
+    description: "Tap 100 times.",
+    icon: "🪙",
+    stat: "total_taps",
+    threshold: 100,
+    dbl: 500,
+    gems: 1,
+    xp: 50,
+  },
+  {
+    id: "tap_1k",
+    name: "Deck Grinder",
+    description: "Tap 1,000 times.",
+    icon: "👆",
+    stat: "total_taps",
+    threshold: 1_000,
+    dbl: 2_500,
+    gems: 3,
+    xp: 150,
+  },
+  {
+    id: "tap_10k",
+    name: "Tap Machine",
+    description: "Tap 10,000 times.",
+    icon: "⚡",
+    stat: "total_taps",
+    threshold: 10_000,
+    dbl: 15_000,
+    gems: 10,
+    xp: 500,
+  },
+  {
+    id: "tap_100k",
+    name: "Unstoppable",
+    description: "Tap 100,000 times.",
+    icon: "🌪️",
+    stat: "total_taps",
+    threshold: 100_000,
+    dbl: 100_000,
+    gems: 40,
+    xp: 2_000,
+  },
   // Levels
-  { id: "level_5", name: "Sailor Stripes", description: "Reach level 5.", icon: "🎖️", stat: "level", threshold: 5, dbl: 2_500, gems: 3, xp: 0 },
-  { id: "level_15", name: "Officer", description: "Reach level 15.", icon: "🧭", stat: "level", threshold: 15, dbl: 20_000, gems: 12, xp: 0 },
-  { id: "level_30", name: "Captain's Hat", description: "Reach level 30.", icon: "🏴‍☠️", stat: "level", threshold: 30, dbl: 75_000, gems: 30, xp: 0 },
+  {
+    id: "level_5",
+    name: "Sailor Stripes",
+    description: "Reach level 5.",
+    icon: "🎖️",
+    stat: "level",
+    threshold: 5,
+    dbl: 2_500,
+    gems: 3,
+    xp: 0,
+  },
+  {
+    id: "level_15",
+    name: "Officer",
+    description: "Reach level 15.",
+    icon: "🧭",
+    stat: "level",
+    threshold: 15,
+    dbl: 20_000,
+    gems: 12,
+    xp: 0,
+  },
+  {
+    id: "level_30",
+    name: "Captain's Hat",
+    description: "Reach level 30.",
+    icon: "🏴‍☠️",
+    stat: "level",
+    threshold: 30,
+    dbl: 75_000,
+    gems: 30,
+    xp: 0,
+  },
   // Streaks
-  { id: "streak_3", name: "Warming Up", description: "Keep a 3-day streak.", icon: "🔥", stat: "longest_streak", threshold: 3, dbl: 1_000, gems: 2, xp: 75 },
-  { id: "streak_7", name: "Week Aboard", description: "Keep a 7-day streak.", icon: "📅", stat: "longest_streak", threshold: 7, dbl: 7_500, gems: 6, xp: 250 },
-  { id: "streak_30", name: "Loyal Crew", description: "Keep a 30-day streak.", icon: "💎", stat: "longest_streak", threshold: 30, dbl: 50_000, gems: 25, xp: 1_000 },
+  {
+    id: "streak_3",
+    name: "Warming Up",
+    description: "Keep a 3-day streak.",
+    icon: "🔥",
+    stat: "longest_streak",
+    threshold: 3,
+    dbl: 1_000,
+    gems: 2,
+    xp: 75,
+  },
+  {
+    id: "streak_7",
+    name: "Week Aboard",
+    description: "Keep a 7-day streak.",
+    icon: "📅",
+    stat: "longest_streak",
+    threshold: 7,
+    dbl: 7_500,
+    gems: 6,
+    xp: 250,
+  },
+  {
+    id: "streak_30",
+    name: "Loyal Crew",
+    description: "Keep a 30-day streak.",
+    icon: "💎",
+    stat: "longest_streak",
+    threshold: 30,
+    dbl: 50_000,
+    gems: 25,
+    xp: 1_000,
+  },
   // Referrals
-  { id: "ref_1", name: "Recruiter", description: "Invite your first friend.", icon: "🤝", stat: "referrals", threshold: 1, dbl: 1_000, gems: 2, xp: 100 },
-  { id: "ref_10", name: "Crew Builder", description: "Invite 10 friends.", icon: "🧑‍🤝‍🧑", stat: "referrals", threshold: 10, dbl: 15_000, gems: 10, xp: 500 },
-  { id: "ref_50", name: "Fleet Admiral", description: "Invite 50 friends.", icon: "⚓", stat: "referrals", threshold: 50, dbl: 100_000, gems: 50, xp: 2_500 },
+  {
+    id: "ref_1",
+    name: "Recruiter",
+    description: "Invite your first friend.",
+    icon: "🤝",
+    stat: "referrals",
+    threshold: 1,
+    dbl: 1_000,
+    gems: 2,
+    xp: 100,
+  },
+  {
+    id: "ref_10",
+    name: "Crew Builder",
+    description: "Invite 10 friends.",
+    icon: "🧑‍🤝‍🧑",
+    stat: "referrals",
+    threshold: 10,
+    dbl: 15_000,
+    gems: 10,
+    xp: 500,
+  },
+  {
+    id: "ref_50",
+    name: "Fleet Admiral",
+    description: "Invite 50 friends.",
+    icon: "⚓",
+    stat: "referrals",
+    threshold: 50,
+    dbl: 100_000,
+    gems: 50,
+    xp: 2_500,
+  },
   // Tasks
-  { id: "task_1", name: "Getting Started", description: "Complete your first task.", icon: "✅", stat: "tasks", threshold: 1, dbl: 750, gems: 1, xp: 50 },
-  { id: "task_all", name: "Taskmaster", description: "Complete 4 tasks.", icon: "📋", stat: "tasks", threshold: 4, dbl: 10_000, gems: 8, xp: 400 },
+  {
+    id: "task_1",
+    name: "Getting Started",
+    description: "Complete your first task.",
+    icon: "✅",
+    stat: "tasks",
+    threshold: 1,
+    dbl: 750,
+    gems: 1,
+    xp: 50,
+  },
+  {
+    id: "task_all",
+    name: "Taskmaster",
+    description: "Complete 4 tasks.",
+    icon: "📋",
+    stat: "tasks",
+    threshold: 4,
+    dbl: 10_000,
+    gems: 8,
+    xp: 400,
+  },
   // Spins
-  { id: "spin_10", name: "Wheel Regular", description: "Spin the wheel 10 times.", icon: "🎡", stat: "spins", threshold: 10, dbl: 5_000, gems: 5, xp: 200 },
+  {
+    id: "spin_10",
+    name: "Wheel Regular",
+    description: "Spin the wheel 10 times.",
+    icon: "🎡",
+    stat: "spins",
+    threshold: 10,
+    dbl: 5_000,
+    gems: 5,
+    xp: 200,
+  },
   // Balance
-  { id: "bal_100k", name: "Treasure Chest", description: "Hold 100,000 DBL.", icon: "🧰", stat: "balance", threshold: 100_000, dbl: 10_000, gems: 8, xp: 300 },
-  { id: "bal_1m", name: "Millionaire", description: "Hold 1,000,000 DBL.", icon: "👑", stat: "balance", threshold: 1_000_000, dbl: 75_000, gems: 35, xp: 1_500 },
+  {
+    id: "bal_100k",
+    name: "Treasure Chest",
+    description: "Hold 100,000 DBL.",
+    icon: "🧰",
+    stat: "balance",
+    threshold: 100_000,
+    dbl: 10_000,
+    gems: 8,
+    xp: 300,
+  },
+  {
+    id: "bal_1m",
+    name: "Millionaire",
+    description: "Hold 1,000,000 DBL.",
+    icon: "👑",
+    stat: "balance",
+    threshold: 1_000_000,
+    dbl: 75_000,
+    gems: 35,
+    xp: 1_500,
+  },
 ];
 
 /** Tap counts that can unlock an achievement — used to skip needless checks. */
-export const TAP_ACHIEVEMENT_THRESHOLDS = ACHIEVEMENTS.filter(
-  (a) => a.stat === "total_taps",
-).map((a) => a.threshold);
+export const TAP_ACHIEVEMENT_THRESHOLDS = ACHIEVEMENTS.filter((a) => a.stat === "total_taps").map(
+  (a) => a.threshold,
+);
 
 export function achievementById(id: string): AchievementDef | undefined {
   return ACHIEVEMENTS.find((a) => a.id === id);

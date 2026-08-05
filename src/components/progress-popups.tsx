@@ -64,9 +64,7 @@ export function ProgressPopups() {
             <div className="win-amount" style={{ fontSize: "1.35rem" }}>
               {current.name}
             </div>
-            <div className="text-xs text-[var(--muted-foreground)]">
-              {current.description}
-            </div>
+            <div className="text-xs text-[var(--muted-foreground)]">{current.description}</div>
           </>
         )}
         <div className="flex items-center gap-2 mt-1">

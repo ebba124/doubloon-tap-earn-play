@@ -17,7 +17,8 @@ function audioCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
   if (!ctx) {
     const AC: typeof AudioContext | undefined =
-      window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AC) return null;
     ctx = new AC();
   }
@@ -30,13 +31,7 @@ export function primeAudio() {
   audioCtx();
 }
 
-function tone(
-  freq: number,
-  dur: number,
-  type: OscillatorType = "sine",
-  gain = 0.14,
-  when = 0,
-) {
+function tone(freq: number, dur: number, type: OscillatorType = "sine", gain = 0.14, when = 0) {
   if (muted) return;
   const a = audioCtx();
   if (!a) return;
@@ -66,9 +61,7 @@ export function playSpinTick() {
 }
 
 export function playWin() {
-  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
-    tone(f, 0.32, "sine", 0.17, i * 0.09),
-  );
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.32, "sine", 0.17, i * 0.09));
   // sparkle tail
   [1318.5, 1568.0].forEach((f, i) => tone(f, 0.25, "triangle", 0.08, 0.36 + i * 0.06));
 }

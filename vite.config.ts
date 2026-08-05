@@ -17,6 +17,7 @@ const startClientCorePkg = fileURLToPath(
 export default defineConfig({
   vite: {
     resolve: {
+      tsconfigPaths: true,
       alias: [
         { find: "@", replacement: fileURLToPath(new URL("./src", import.meta.url)) },
         { find: /^@tanstack\/start-client-core\/(.*)$/, replacement: `${startClientCorePkg}$1` },

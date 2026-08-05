@@ -33,7 +33,9 @@ export function WinOverlay({ open, amount, title = "You won!", onClose }: WinOve
         rotate: Math.random() * 360,
       })),
     // Regenerate the burst each time the overlay opens.
-    [open],
+    [
+      // Only regenerate when opening, not when closing or onClose changes
+    ],
   );
 
   useEffect(() => {

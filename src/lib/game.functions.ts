@@ -6,7 +6,7 @@ const initDataSchema = z.object({ initData: z.string().min(1) });
 // --- getSession -------------------------------------------------------------
 
 export const getSession = createServerFn({ method: "POST" })
-  .inputValidator((d: { initData: string }) => initDataSchema.parse(d))
+  .validator((d: { initData: string }) => initDataSchema.parse(d))
   .handler(async ({ data }) => {
     const { verifyInitData, db, incBalance, regenEnergy, checkRequiredChannels, grantProgress } =
       await import("./game.server");
@@ -15,7 +15,11 @@ export const getSession = createServerFn({ method: "POST" })
     const v = await verifyInitData(data.initData);
     const svc = db();
 
-    const { data: existing } = await svc.from("users").select("*").eq("id", v.user.id).maybeSingle();
+    const { data: existing } = await svc
+      .from("users")
+      .select("*")
+      .eq("id", v.user.id)
+      .maybeSingle();
     let user = existing;
     if (!user) {
       const insertRes = await svc
@@ -73,10 +77,7 @@ export const getSession = createServerFn({ method: "POST" })
             .select("*", { count: "exact", head: true })
             .eq("referrer_id", referrerId);
           if ((count ?? 0) === eco.REFERRAL_MILESTONE_COUNT) {
-            await svc
-              .from("users")
-              .update({ tap_multiplier_permanent: 2 })
-              .eq("id", referrerId);
+            await svc.from("users").update({ tap_multiplier_permanent: 2 }).eq("id", referrerId);
             await incBalance(referrerId, eco.REFERRAL_MILESTONE_BONUS);
             await svc.from("audit_log").insert({
               user_id: referrerId,
@@ -117,12 +118,12 @@ export const getSession = createServerFn({ method: "POST" })
       .limit(100);
     const refIds = (myRefs ?? []).map((r) => Number(r.referred_id));
     const refUsers = refIds.length
-      ? (
+      ? ((
           await svc
             .from("users")
             .select("id, username, first_name, photo_url, balance")
             .in("id", refIds)
-        ).data ?? []
+        ).data ?? [])
       : [];
 
     const { data: withdrawals } = await svc
@@ -228,7 +229,7 @@ export const getSession = createServerFn({ method: "POST" })
 // --- tap --------------------------------------------------------------------
 
 export const tap = createServerFn({ method: "POST" })
-  .inputValidator((d: { initData: string; taps: number; nonce: string }) =>
+  .validator((d: { initData: string; taps: number; nonce: string }) =>
     z
       .object({
         initData: z.string().min(1),
@@ -266,8 +267,7 @@ export const tap = createServerFn({ method: "POST" })
     const applyTaps = Math.min(data.taps, u.energy, allowedTaps);
     if (applyTaps <= 0) return { user: u, applied: 0, duplicate: false };
 
-    const value =
-      applyTaps * Number(u.tap_value) * Number(u.tap_multiplier_permanent || 1);
+    const value = applyTaps * Number(u.tap_value) * Number(u.tap_multiplier_permanent || 1);
 
     const prevTaps = Number(u.total_taps);
     const newTaps = prevTaps + applyTaps;
@@ -309,7 +309,7 @@ export const tap = createServerFn({ method: "POST" })
 // --- claimDaily -------------------------------------------------------------
 
 export const claimDaily = createServerFn({ method: "POST" })
-  .inputValidator((d: { initData: string }) => initDataSchema.parse(d))
+  .validator((d: { initData: string }) => initDataSchema.parse(d))
   .handler(async ({ data }) => {
     const { verifyInitData, regenEnergy, checkRequiredChannels, grantProgress, checkAchievements } =
       await import("./game.server");
@@ -318,9 +318,7 @@ export const claimDaily = createServerFn({ method: "POST" })
     const v = await verifyInitData(data.initData);
     const gate = await checkRequiredChannels(v.user.id);
     if (!gate.ok)
-      throw new Error(
-        `Join our channels first: ${gate.missing.map((c) => c.label).join(", ")}`,
-      );
+      throw new Error(`Join our channels first: ${gate.missing.map((c) => c.label).join(", ")}`);
     const u = await regenEnergy(v.user.id);
 
     const now = new Date();
@@ -359,8 +357,7 @@ export const claimDaily = createServerFn({ method: "POST" })
     const base = eco.DAILY_STREAK_REWARDS[day - 1];
     const multiplier = prog.streakMultiplier(day);
     const reward = Math.floor(base * multiplier) + comebackBonus;
-    const gems =
-      prog.GEMS_PER_DAILY + (day % 7 === 0 ? prog.GEMS_WEEKLY_BONUS : 0);
+    const gems = prog.GEMS_PER_DAILY + (day % 7 === 0 ? prog.GEMS_WEEKLY_BONUS : 0);
     // Every completed week banks a streak freeze, up to the cap.
     if (day % 7 === 0) freezes = Math.min(prog.MAX_STREAK_FREEZES, freezes + 1);
 
@@ -399,7 +396,7 @@ export const claimDaily = createServerFn({ method: "POST" })
 // --- buyBoost ---------------------------------------------------------------
 
 export const buyBoost = createServerFn({ method: "POST" })
-  .inputValidator((d: { initData: string; boostId: string; nonce: string }) =>
+  .validator((d: { initData: string; boostId: string; nonce: string }) =>
     z
       .object({
         initData: z.string().min(1),
@@ -426,8 +423,7 @@ export const buyBoost = createServerFn({ method: "POST" })
     }
 
     const u = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
-    const currentLevel =
-      boost.id === "multitap" ? u.multitap_level : u.energy_limit_level;
+    const currentLevel = boost.id === "multitap" ? u.multitap_level : u.energy_limit_level;
     if (currentLevel >= boost.maxLevel) throw new Error("Boost at max level");
     const cost = eco.boostCost(boost, currentLevel);
     if (Number(u.balance) < cost) throw new Error("Not enough DBL");
@@ -450,7 +446,7 @@ export const buyBoost = createServerFn({ method: "POST" })
 // --- completeTask -----------------------------------------------------------
 
 export const completeTask = createServerFn({ method: "POST" })
-  .inputValidator((d: { initData: string; taskId: string }) =>
+  .validator((d: { initData: string; taskId: string }) =>
     z.object({ initData: z.string().min(1), taskId: z.string() }).parse(d),
   )
   .handler(async ({ data }) => {
@@ -465,9 +461,7 @@ export const completeTask = createServerFn({ method: "POST" })
 
     const gate = await checkRequiredChannels(v.user.id);
     if (!gate.ok)
-      throw new Error(
-        `Join our channels first: ${gate.missing.map((c) => c.label).join(", ")}`,
-      );
+      throw new Error(`Join our channels first: ${gate.missing.map((c) => c.label).join(", ")}`);
 
     if (task.id === "invite_1") {
       const { count } = await svc
@@ -485,9 +479,11 @@ export const completeTask = createServerFn({ method: "POST" })
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ chat_id: task.chat, user_id: v.user.id }),
       });
-      const json = (await res.json().catch(() => null)) as
-        | { ok?: boolean; result?: { status?: string }; description?: string }
-        | null;
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        result?: { status?: string };
+        description?: string;
+      } | null;
       if (!json?.ok) {
         console.error("getChatMember failed", task.chat, json?.description);
         throw new Error("Could not verify your subscription. Try again in a moment.");
@@ -497,7 +493,6 @@ export const completeTask = createServerFn({ method: "POST" })
         throw new Error("Join the channel first, then claim.");
       }
     }
-
 
     const { error: dupErr } = await svc.from("tasks_done").insert({
       user_id: v.user.id,
@@ -526,16 +521,15 @@ export const completeTask = createServerFn({ method: "POST" })
 // --- requestWithdraw --------------------------------------------------------
 
 export const requestWithdraw = createServerFn({ method: "POST" })
-  .inputValidator(
-    (d: { initData: string; amount_dbl: number; method: string; address: string }) =>
-      z
-        .object({
-          initData: z.string().min(1),
-          amount_dbl: z.number().int().positive(),
-          method: z.string(),
-          address: z.string().min(3).max(128),
-        })
-        .parse(d),
+  .validator((d: { initData: string; amount_dbl: number; method: string; address: string }) =>
+    z
+      .object({
+        initData: z.string().min(1),
+        amount_dbl: z.number().int().positive(),
+        method: z.string(),
+        address: z.string().min(3).max(128),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     const { verifyInitData, db } = await import("./game.server");
@@ -581,7 +575,7 @@ export const requestWithdraw = createServerFn({ method: "POST" })
 // --- spin (Lucky Spin Wheel) ------------------------------------------------
 
 export const spin = createServerFn({ method: "POST" })
-  .inputValidator((d: { initData: string; nonce: string }) =>
+  .validator((d: { initData: string; nonce: string }) =>
     z
       .object({
         initData: z.string().min(1),
@@ -599,9 +593,7 @@ export const spin = createServerFn({ method: "POST" })
 
     const gate = await checkRequiredChannels(v.user.id);
     if (!gate.ok)
-      throw new Error(
-        `Join our channels first: ${gate.missing.map((c) => c.label).join(", ")}`,
-      );
+      throw new Error(`Join our channels first: ${gate.missing.map((c) => c.label).join(", ")}`);
 
     // Server-side cooldown enforcement using the audit log.
     const { data: lastSpinRow } = await svc
@@ -630,7 +622,14 @@ export const spin = createServerFn({ method: "POST" })
       .insert({ key: idKey, user_id: v.user.id });
     if (idErr) {
       const u = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
-      return { user: u, prizeIndex: -1, amount: 0, cooldown: false, duplicate: true, nextSpinAt: null };
+      return {
+        user: u,
+        prizeIndex: -1,
+        amount: 0,
+        cooldown: false,
+        duplicate: true,
+        nextSpinAt: null,
+      };
     }
 
     const prizeIndex = eco.pickSpinPrize();
