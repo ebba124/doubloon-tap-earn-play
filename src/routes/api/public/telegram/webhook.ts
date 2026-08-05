@@ -120,13 +120,35 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               `More friends. More rewards. More Doubloons. 🚀`,
             ].join("\n");
 
-            await sendMessage(chatId, welcome, {
-              inline_keyboard: [
-                [{ text: "🎮 Play DoubloonTap", web_app: { url: webAppUrl } }],
-                [{ text: "💪🪙 Join community", url: "https://t.me/Doublooncommunity" }],
-                [{ text: "📢 Announcements channel", url: "https://t.me/Doubloontap" }],
-                [{ text: "🎁 Rewards channel", url: "https://t.me/Doubloonreward" }],
+            const buttons: InlineKeyboardButton[][] = [
+              [
+                {
+                  text: "🎮 Play DoubloonTap",
+                  web_app: { url: webAppUrl },
+                } as InlineKeyboardButton,
               ],
+              [
+                {
+                  text: "💪🪙 Join Community",
+                  url: "https://t.me/Doublooncommunity",
+                } as InlineKeyboardButton,
+              ],
+              [
+                {
+                  text: "📢 Announcements",
+                  url: "https://t.me/Doubloontap",
+                } as InlineKeyboardButton,
+              ],
+              [
+                {
+                  text: "🎁 Rewards Channel",
+                  url: "https://t.me/Doubloonreward",
+                } as InlineKeyboardButton,
+              ],
+            ];
+
+            await sendMessage(chatId, welcome, {
+              inline_keyboard: buttons,
             });
           }
 
