@@ -200,6 +200,11 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                 `<b>👤 Profile</b>\n\nNo account yet. Send /start to create one!`,
               );
             } else {
+              const { count: referralCount } = await supabaseAdmin
+                .from("referrals")
+                .select("*", { count: "exact", head: true })
+                .eq("referrer_id", from.id);
+
               const profile = [
                 `<b>👤 Your Profile</b>`,
                 ``,
@@ -207,7 +212,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                 `<b>Balance:</b> ${user.balance?.toLocaleString() || "0"} DBL`,
                 `<b>Level:</b> ${user.level || 1}`,
                 `<b>Total Taps:</b> ${user.total_taps?.toLocaleString() || "0"}`,
-                `<b>Friends Invited:</b> ${user.referral_count || 0}`,
+                `<b>Friends Invited:</b> ${referralCount ?? 0}`,
                 ``,
                 `Continue tapping to earn more DBL! 🚀`,
               ].join("\n");
