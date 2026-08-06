@@ -39,11 +39,7 @@ export async function incBalance(userId: number, delta: number) {
 
 export async function regenEnergy(userId: number) {
   const svc = db();
-  const { data: u, error } = await svc
-    .from("users")
-    .select("*")
-    .eq("id", userId)
-    .maybeSingle();
+  const { data: u, error } = await svc.from("users").select("*").eq("id", userId).maybeSingle();
   if (error) {
     console.error("[v0] Energy profile lookup failed:", error);
     throw new Error("Unable to load your game profile. Please try again.");
