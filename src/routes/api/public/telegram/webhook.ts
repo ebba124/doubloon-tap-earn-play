@@ -29,6 +29,19 @@ function safeEq(a: string, b: string) {
   return A.length === B.length && timingSafeEqual(A, B);
 }
 
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[character];
+  });
+}
+
 async function sendMessage(chatId: number | string, text: string, replyMarkup?: ReplyMarkup) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
@@ -74,8 +87,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         if (from?.id && typeof text === "string") {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const chatId = msg.chat?.id ?? from.id;
-          const webAppUrl = process.env.PUBLIC_APP_URL ?? "https://doubloon-tap-quest.lovable.app";
-          const name = from.username ? `@${from.username}` : (from.first_name ?? "there");
+          const webAppUrl = "https://doubloon-tap-earn-play-five.vercel.app";
+          const name = escapeHtml(
+            from.username ? `@${from.username}` : (from.first_name ?? "there"),
+          );
 
           const command = text.trim().split(/\s+/)[0].toLowerCase();
 
