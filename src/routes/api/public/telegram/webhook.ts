@@ -29,11 +29,7 @@ function safeEq(a: string, b: string) {
   return A.length === B.length && timingSafeEqual(A, B);
 }
 
-async function sendMessage(
-  chatId: number | string,
-  text: string,
-  replyMarkup?: ReplyMarkup,
-) {
+async function sendMessage(chatId: number | string, text: string, replyMarkup?: ReplyMarkup) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
 
