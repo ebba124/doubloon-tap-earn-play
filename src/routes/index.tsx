@@ -53,44 +53,6 @@ function formatNum(n: number) {
 
 type Tab = "earn" | "spin" | "tasks" | "friends" | "boosts" | "wallet";
 
-type InboxItem = {
-  id: string;
-  title: string;
-  body: string;
-  tone: "info" | "warning" | "success";
-};
-
-function buildInboxItems(session: any): InboxItem[] {
-  const items: InboxItem[] = [];
-  const lastClaim = session.user?.last_daily_claim;
-  const hasDailyWindow = !lastClaim || (Date.now() - new Date(lastClaim).getTime()) / 3.6e6 >= 20;
-  if (hasDailyWindow) {
-    items.push({
-      id: "daily-reward",
-      title: "Daily reward ready",
-      body: "Claim a fresh reward now and keep your streak moving.",
-      tone: "info",
-    });
-  }
-  if (session.membership?.ok === false) {
-    items.push({
-      id: "join-channels",
-      title: "Join required channels",
-      body: "Unlock rewards by joining our community channels.",
-      tone: "warning",
-    });
-  }
-  if (!session.tasksDone?.includes("invite_1")) {
-    items.push({
-      id: "invite-friends",
-      title: "Invite a friend",
-      body: "Bring one friend and earn bonus DBL for your crew.",
-      tone: "success",
-    });
-  }
-  return items;
-}
-
 function randomUsdAmount() {
   return Number((Math.random() * 90 + 10).toFixed(2));
 }
@@ -201,7 +163,6 @@ function App({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
         onOpenSettings={() => setSettingsOpen(true)}
         onRefresh={() => refetch()}
       />
-      <InboxPanel session={data} />
       <LevelBar session={data} />
       <ProgressPopups />
       {tab === "earn" && <EarnTab session={data} />}
@@ -269,48 +230,6 @@ function Header({
         >
           <Settings size={20} />
         </button>
-      </div>
-    </div>
-  );
-}
-
-function InboxPanel({ session }: { session: any }) {
-  const [items, setItems] = useState<InboxItem[]>([]);
-
-  const sessionKey = useMemo(
-    () =>
-      `${session.user?.last_daily_claim},${session.membership?.ok},${session.tasksDone?.join(",")}`,
-    [session.user?.last_daily_claim, session.membership?.ok, session.tasksDone],
-  );
-
-  useEffect(() => {
-    const next = buildInboxItems(session);
-    setItems(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionKey]);
-
-  if (items.length === 0) return null;
-
-  return (
-    <div className="mx-4 mb-2 rounded-2xl border border-[var(--gold)]/30 bg-[var(--accent)]/70 p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <div>
-          <div className="text-sm font-bold">📥 Inbox</div>
-          <div className="text-xs text-[var(--muted-foreground)]">
-            Smart reminders for your next move
-          </div>
-        </div>
-        <span className="rounded-full bg-[var(--gold)]/20 px-2 py-1 text-[10px] font-semibold text-[var(--gold)]">
-          {items.length} new
-        </span>
-      </div>
-      <div className="flex flex-col gap-2">
-        {items.map((item) => (
-          <div key={item.id} className="rounded-xl border border-white/10 bg-black/10 p-2 text-sm">
-            <div className="font-semibold">{item.title}</div>
-            <div className="text-xs text-[var(--muted-foreground)]">{item.body}</div>
-          </div>
-        ))}
       </div>
     </div>
   );
