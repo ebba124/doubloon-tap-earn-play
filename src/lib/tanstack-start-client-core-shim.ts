@@ -77,5 +77,9 @@ export const getDefaultSerovalPlugins_compat = (realModule as any).getDefaultSer
 export const TSS_SERVER_FUNCTION = (realModule as any).TSS_SERVER_FUNCTION;
 export const FRAME_HEADER_SIZE = (realModule as any).FRAME_HEADER_SIZE;
 export const FrameType = (realModule as any).FrameType;
-export const TSS_CONTENT_TYPE_FRAMED_VERSIONED_V2 = (realModule as any)
-  .TSS_CONTENT_TYPE_FRAMED_VERSIONED_V2;
+// Read via a computed key so bundlers can't statically flag this as a missing named export
+// on versions of @tanstack/start-client-core that don't ship this constant yet.
+const v2ContentTypeKey = ["TSS_CONTENT_TYPE_FRAMED_VERSIONED", "_V2"].join("");
+export const TSS_CONTENT_TYPE_FRAMED_VERSIONED_V2 = (realModule as Record<string, unknown>)[
+  v2ContentTypeKey
+];

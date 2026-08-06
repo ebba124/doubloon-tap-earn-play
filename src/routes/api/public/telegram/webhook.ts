@@ -86,8 +86,9 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
 
         if (from?.id && typeof text === "string") {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { REQUIRED_CHANNELS } = await import("@/lib/economy.server");
           const chatId = msg.chat?.id ?? from.id;
-          const webAppUrl = "https://doubloon-tap-earn-play-five.vercel.app";
+          const webAppUrl = process.env.URL || "https://doubloon-tap-earn-play-five.vercel.app";
           const name = escapeHtml(
             from.username ? `@${from.username}` : (from.first_name ?? "there"),
           );
@@ -138,12 +139,12 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                   web_app: { url: webAppUrl },
                 } as InlineKeyboardButton,
               ],
-              [
+              ...REQUIRED_CHANNELS.map((channel) => [
                 {
-                  text: "💪🪙 Join Community",
-                  url: "https://t.me/Doublooncommunity",
+                  text: `💪🪙 Join ${channel.label}`,
+                  url: channel.url,
                 } as InlineKeyboardButton,
-              ],
+              ]),
             ];
 
             await sendMessage(chatId, welcome, {
