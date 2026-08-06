@@ -1,5 +1,11 @@
 {
   "buildCommand": "npm run build",
+  "crons": [
+    {
+      "path": "/api/public/cron/claim-reminder",
+      "schedule": "0 12 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

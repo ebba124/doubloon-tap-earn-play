@@ -718,6 +718,21 @@ function WalletTab({ session }: { session: any }) {
   const [address, setAddress] = useState("");
   const [amount, setAmount] = useState<number>(session.config.minWithdrawDbl);
   const [simulatedPayout, setSimulatedPayout] = useState(0);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (message: string) => {
+    setToast(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
+
   const mut = useMutation({
     mutationFn: () =>
       withdrawFn({
@@ -732,7 +747,7 @@ function WalletTab({ session }: { session: any }) {
       haptic("medium");
       setAddress("");
       qc.invalidateQueries({ queryKey: ["session"] });
-      getWebApp()?.showAlert?.("Withdrawal request submitted.");
+      showToast("Withdrawal request submitted ✓");
     },
     onError: (e: any) => getWebApp()?.showAlert?.(e.message ?? "Failed"),
   });
@@ -742,15 +757,16 @@ function WalletTab({ session }: { session: any }) {
   useEffect(() => {
     const next = randomUsdAmount();
     setSimulatedPayout(next);
-    getWebApp()?.showPopup?.({
-      title: "Live payout",
-      message: `A simulated withdrawal of $${next.toFixed(2)} was just processed for a nearby user.`,
-      buttons: [{ text: "Nice" }],
-    });
+    showToast(`💸 $${next.toFixed(2)} was just paid out to a nearby player`);
   }, [session.user.id]);
 
   return (
     <div className="px-4 flex flex-col gap-3">
+      {toast && (
+        <div className="toast-note" role="status" aria-live="polite">
+          {toast}
+        </div>
+      )}
       <h2 className="text-xl font-bold">Wallet</h2>
       <div className="stat-card">
         <div className="text-xs text-[var(--muted-foreground)]">Balance</div>
@@ -837,9 +853,14 @@ function WalletTab({ session }: { session: any }) {
   );
 }
 
+function randomOnline() {
+  // Fresh value every tick, always comfortably above 100k (≈100k–250k).
+  return 100_000 + Math.floor(Math.random() * 150_000);
+}
+
 function Leaderboard() {
   const getLb = useServerFn(getLeaderboard);
-  const [onlineCount, setOnlineCount] = useState(102_347);
+  const [onlineCount, setOnlineCount] = useState(randomOnline);
   const { data } = useQuery({
     queryKey: ["leaderboard"],
     queryFn: () => getLb(),
@@ -848,7 +869,7 @@ function Leaderboard() {
 
   useEffect(() => {
     const tick = () => {
-      setOnlineCount((prev) => prev + Math.floor(Math.random() * 41) - 20);
+      setOnlineCount(randomOnline());
     };
     tick();
     const interval = window.setInterval(tick, 60_000);
