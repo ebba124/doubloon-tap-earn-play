@@ -151,7 +151,11 @@ function App({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   if (error || !data)
     return (
       <AuthError
-        message={(error as Error)?.message ?? "Session failed"}
+        message={
+          (error as Error)?.message === "User not found"
+            ? "Your Telegram profile was not created. Tap Open bot, then press Play again."
+            : ((error as Error)?.message ?? "Session failed")
+        }
         onRetry={() => refetch()}
       />
     );

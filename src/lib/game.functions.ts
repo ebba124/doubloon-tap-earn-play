@@ -15,27 +15,36 @@ export const getSession = createServerFn({ method: "POST" })
     const v = await verifyInitData(data.initData);
     const svc = db();
 
-    const { data: existing } = await svc
+    const { data: existing, error: lookupError } = await svc
       .from("users")
-      .select("*")
+      .select("id")
       .eq("id", v.user.id)
       .maybeSingle();
-    let user = existing;
-    if (!user) {
-      const insertRes = await svc
-        .from("users")
-        .insert({
-          id: v.user.id,
-          username: v.user.username ?? null,
-          first_name: v.user.first_name ?? null,
-          last_name: v.user.last_name ?? null,
-          photo_url: v.user.photo_url ?? null,
-          language_code: v.user.language_code ?? null,
-        })
-        .select("*")
-        .single();
-      user = insertRes.data!;
+    if (lookupError) {
+      console.error("[v0] Telegram user lookup failed:", lookupError);
+      throw new Error("Unable to load your game profile. Please try again.");
+    }
 
+    const profile = {
+      id: v.user.id,
+      username: v.user.username ?? null,
+      first_name: v.user.first_name ?? null,
+      last_name: v.user.last_name ?? null,
+      photo_url: v.user.photo_url ?? null,
+      language_code: v.user.language_code ?? null,
+    };
+    const { data: provisionedUser, error: userError } = await svc
+      .from("users")
+      .upsert(profile, { onConflict: "id" })
+      .select("*")
+      .single();
+    let user = provisionedUser;
+    if (userError || !user) {
+      console.error("[v0] Telegram user provisioning failed:", userError);
+      throw new Error("Unable to create your game profile. Please try again.");
+    }
+
+    if (!existing) {
       let referrerId: number | null = null;
       if (v.start_param?.startsWith("ref_")) {
         const rid = Number(v.start_param.slice(4));
@@ -89,18 +98,6 @@ export const getSession = createServerFn({ method: "POST" })
         }
         await svc.from("pending_referrals").delete().eq("referred_id", v.user.id);
       }
-      user = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
-    } else {
-      await svc
-        .from("users")
-        .update({
-          username: v.user.username ?? user.username,
-          first_name: v.user.first_name ?? user.first_name,
-          last_name: v.user.last_name ?? user.last_name,
-          photo_url: v.user.photo_url ?? user.photo_url,
-          language_code: v.user.language_code ?? user.language_code,
-        })
-        .eq("id", v.user.id);
     }
 
     user = await regenEnergy(v.user.id);

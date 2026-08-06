@@ -18,12 +18,23 @@ export function db() {
 
 export async function incBalance(userId: number, delta: number) {
   const svc = db();
-  const { data } = await svc.from("users").select("balance").eq("id", userId).single();
-  if (!data) return;
-  await svc
+  const { data, error: readError } = await svc
+    .from("users")
+    .select("balance")
+    .eq("id", userId)
+    .single();
+  if (readError || !data) {
+    console.error("[v0] Balance read failed:", readError);
+    throw new Error("Unable to update your balance.");
+  }
+  const { error: updateError } = await svc
     .from("users")
     .update({ balance: Number(data.balance) + delta })
     .eq("id", userId);
+  if (updateError) {
+    console.error("[v0] Balance update failed:", updateError);
+    throw new Error("Unable to update your balance.");
+  }
 }
 
 export async function regenEnergy(userId: number) {
@@ -76,8 +87,15 @@ export async function grantProgress(
 ) {
   const prog = await import("./progression");
   const svc = db();
-  const { data: u } = await svc.from("users").select("*").eq("id", userId).single();
-  if (!u) throw new Error("User not found");
+  const { data: u, error: userError } = await svc
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .single();
+  if (userError || !u) {
+    console.error("[v0] Reward user lookup failed:", userError);
+    throw new Error("User profile is not ready. Please reopen the Mini App.");
+  }
 
   const xp = Number(u.xp ?? 0) + (opts.xp ?? 0);
   const prevLevel = Number(u.level ?? 1);
