@@ -39,8 +39,19 @@ export async function incBalance(userId: number, delta: number) {
 
 export async function regenEnergy(userId: number) {
   const svc = db();
-  const { data: u } = await svc.from("users").select("*").eq("id", userId).single();
-  if (!u) throw new Error("User not found");
+  const { data: u, error } = await svc
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error("[v0] Energy profile lookup failed:", error);
+    throw new Error("Unable to load your game profile. Please try again.");
+  }
+  if (!u) {
+    console.error("[v0] Energy profile missing after provisioning:", { userId });
+    throw new Error("Unable to load your game profile. Please reopen the Mini App from Telegram.");
+  }
   const now = new Date();
   const last = new Date(u.last_energy_update);
   const elapsedSec = Math.max(0, (now.getTime() - last.getTime()) / 1000);
