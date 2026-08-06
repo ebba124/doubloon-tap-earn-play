@@ -9,6 +9,15 @@
           "value": "no-store, no-cache, must-revalidate, max-age=0"
         }
       ]
+    },
+    {
+      "source": "/api/public/(.*)",
+      "headers": [
+        {
+          "key": "X-Vercel-Protection-Bypass",
+          "value": "1"
+        }
+      ]
     }
   ]
 }
