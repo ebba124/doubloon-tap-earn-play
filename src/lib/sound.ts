@@ -49,25 +49,29 @@ function tone(freq: number, dur: number, type: OscillatorType = "sine", gain = 0
 }
 
 export function playTap() {
-  tone(660 + Math.random() * 90, 0.09, "triangle", 0.11);
+  // Soft, rounded pluck — gentle on the ears even with rapid taps.
+  tone(523.25 + Math.random() * 40, 0.11, "sine", 0.06);
 }
 
 export function playClaim() {
-  [523.25, 659.25, 783.99].forEach((f, i) => tone(f, 0.2, "sine", 0.15, i * 0.07));
+  // Warm rising chime.
+  [523.25, 659.25, 783.99].forEach((f, i) => tone(f, 0.22, "sine", 0.1, i * 0.08));
 }
 
 export function playSpinTick() {
-  tone(1000, 0.028, "square", 0.05);
+  tone(880, 0.03, "sine", 0.035);
 }
 
 export function playWin() {
-  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.32, "sine", 0.17, i * 0.09));
-  // sparkle tail
-  [1318.5, 1568.0].forEach((f, i) => tone(f, 0.25, "triangle", 0.08, 0.36 + i * 0.06));
+  // Mellow celebratory arpeggio, no harsh square/saw edges.
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.34, "sine", 0.11, i * 0.09));
+  // gentle sparkle tail
+  [1318.5, 1568.0].forEach((f, i) => tone(f, 0.26, "sine", 0.05, 0.36 + i * 0.06));
 }
 
 export function playError() {
-  tone(196, 0.22, "sawtooth", 0.1);
+  // Soft low blip instead of a harsh sawtooth buzz.
+  tone(311.13, 0.18, "sine", 0.06);
 }
 
 export function isMuted() {

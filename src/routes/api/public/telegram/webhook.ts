@@ -144,18 +144,6 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                   url: "https://t.me/Doublooncommunity",
                 } as InlineKeyboardButton,
               ],
-              [
-                {
-                  text: "📢 Announcements",
-                  url: "https://t.me/Doubloontap",
-                } as InlineKeyboardButton,
-              ],
-              [
-                {
-                  text: "🎁 Rewards Channel",
-                  url: "https://t.me/Doubloonreward",
-                } as InlineKeyboardButton,
-              ],
             ];
 
             await sendMessage(chatId, welcome, {
