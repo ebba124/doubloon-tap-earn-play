@@ -87,8 +87,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         if (from?.id && typeof text === "string") {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const chatId = msg.chat?.id ?? from.id;
-          const webAppUrl =
-            process.env.PUBLIC_APP_URL ?? "https://doubloon-tap-earn-play-five.vercel.app";
+          const webAppUrl = "https://doubloon-tap-earn-play-five.vercel.app";
           const name = escapeHtml(
             from.username ? `@${from.username}` : (from.first_name ?? "there"),
           );
