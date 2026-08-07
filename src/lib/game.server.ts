@@ -76,7 +76,15 @@ export async function grantProgress(
 ) {
   const prog = await import("./progression");
   const svc = db();
-  const { data: u } = await svc.from("users").select("*").eq("id", userId).single();
+  const { data: u, error: userError } = await svc
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .single();
+  if (userError) {
+    console.error("[v0] grantProgress user lookup failed", userId, userError.message);
+    throw new Error("Could not load your balance. Please try again.");
+  }
   if (!u) throw new Error("User not found");
 
   const xp = Number(u.xp ?? 0) + (opts.xp ?? 0);
@@ -93,7 +101,7 @@ export async function grantProgress(
     levelUps.push({ level: l, title: prog.levelTitle(l), ...reward });
   }
 
-  const { data: fresh } = await svc
+  const { data: fresh, error: updateError } = await svc
     .from("users")
     .update({
       ...(opts.patch ?? {}),
@@ -105,15 +113,23 @@ export async function grantProgress(
     .eq("id", userId)
     .select("*")
     .single();
+  if (updateError || !fresh) {
+    console.error("[v0] grantProgress balance update failed", userId, updateError?.message);
+    throw new Error("Could not apply your reward. Please try again.");
+  }
 
-  await svc.from("audit_log").insert({
+  const { error: auditError } = await svc.from("audit_log").insert({
     user_id: userId,
     action: opts.action,
     delta: dbl,
     meta: { ...(opts.meta ?? {}), gems, xp: opts.xp ?? 0, levelUps: levelUps.map((l) => l.level) },
   });
+  if (auditError) {
+    console.error("[v0] grantProgress audit write failed", userId, auditError.message);
+    throw new Error("Could not record your reward. Please try again.");
+  }
 
-  return { user: fresh!, levelUps, dbl, gems };
+  return { user: fresh, levelUps, dbl, gems };
 }
 
 /**
