@@ -88,7 +88,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { REQUIRED_CHANNELS } = await import("@/lib/economy.server");
           const chatId = msg.chat?.id ?? from.id;
-          const webAppUrl = process.env.URL || "https://doubloon-tap-earn-play-five.vercel.app";
+          const webAppUrl =
+            process.env.TELEGRAM_MINI_APP_URL ||
+            process.env.URL ||
+            "https://doubloon-tap-earn-play-five.vercel.app";
           const name = escapeHtml(
             from.username ? `@${from.username}` : (from.first_name ?? "there"),
           );
