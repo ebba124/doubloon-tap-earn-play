@@ -91,7 +91,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           const webAppUrl =
             process.env.TELEGRAM_MINI_APP_URL ||
             process.env.URL ||
-            "https://doubloon-tap-earn-play-five.vercel.app";
+            "https://doubloon-tap-earn-play.vercel.app";
           const name = escapeHtml(
             from.username ? `@${from.username}` : (from.first_name ?? "there"),
           );
