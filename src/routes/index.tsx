@@ -459,9 +459,23 @@ function TasksTab({ session }: { session: any }) {
   const completeFn = useServerFn(completeTask);
   const mut = useMutation({
     mutationFn: (taskId: string) => completeFn({ data: { initData: getInitData(), taskId } }),
-    onSuccess: () => {
+    onSuccess: (r: any) => {
       haptic("medium");
       playClaim();
+      // Sync the authoritative balance immediately so the reward shows without
+      // waiting for a refetch, then push any level up / achievement popups.
+      qc.setQueryData(["session"], (prev: any) =>
+        prev
+          ? {
+              ...prev,
+              user: r.user,
+              tasksDone: prev.tasksDone.includes(r.taskId ?? "")
+                ? prev.tasksDone
+                : [...prev.tasksDone, r.taskId].filter(Boolean),
+            }
+          : prev,
+      );
+      pushProgress(r.progress);
       qc.invalidateQueries({ queryKey: ["session"] });
     },
     onError: (e: any) => {
