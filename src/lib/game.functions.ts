@@ -24,17 +24,24 @@ export const getSession = createServerFn({ method: "POST" })
     if (!user) {
       const insertRes = await svc
         .from("users")
-        .insert({
-          id: v.user.id,
-          username: v.user.username ?? null,
-          first_name: v.user.first_name ?? null,
-          last_name: v.user.last_name ?? null,
-          photo_url: v.user.photo_url ?? null,
-          language_code: v.user.language_code ?? null,
-        })
+        .upsert(
+          {
+            id: v.user.id,
+            username: v.user.username ?? null,
+            first_name: v.user.first_name ?? null,
+            last_name: v.user.last_name ?? null,
+            photo_url: v.user.photo_url ?? null,
+            language_code: v.user.language_code ?? null,
+          },
+          { onConflict: "id" },
+        )
         .select("*")
         .single();
-      user = insertRes.data!;
+      if (insertRes.error || !insertRes.data) {
+        console.error("[v0] session user upsert failed", v.user.id, insertRes.error?.message);
+        throw new Error("Could not start your game session. Please try again.");
+      }
+      user = insertRes.data;
 
       let referrerId: number | null = null;
       if (v.start_param?.startsWith("ref_")) {

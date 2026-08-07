@@ -28,8 +28,27 @@ export async function incBalance(userId: number, delta: number) {
 
 export async function regenEnergy(userId: number) {
   const svc = db();
-  const { data: u } = await svc.from("users").select("*").eq("id", userId).single();
-  if (!u) throw new Error("User not found");
+  let { data: u, error: lookupError } = await svc
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+
+  // Claims can arrive before the first session request finishes. Repair the
+  // missing row instead of turning a valid Telegram user into a failed claim.
+  if (!u) {
+    const created = await svc
+      .from("users")
+      .upsert({ id: userId }, { onConflict: "id" })
+      .select("*")
+      .single();
+    u = created.data;
+    lookupError = created.error;
+  }
+  if (lookupError || !u) {
+    console.error("[v0] user row unavailable", userId, lookupError?.message);
+    throw new Error("Could not load your game profile. Please try again.");
+  }
   const now = new Date();
   const last = new Date(u.last_energy_update);
   const elapsedSec = Math.max(0, (now.getTime() - last.getTime()) / 1000);

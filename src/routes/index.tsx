@@ -884,11 +884,90 @@ function Leaderboard() {
         first_name: "Nova",
         username: "nova",
         balance: 1_250_000,
-        photo_url: "",
+        initials: "N",
+        tone: "#8b5cf6",
       },
-      { id: 90002, rank: 0, first_name: "Mina", username: "mina", balance: 980_000, photo_url: "" },
-      { id: 90003, rank: 0, first_name: "Rex", username: "rex", balance: 870_000, photo_url: "" },
-      { id: 90004, rank: 0, first_name: "Luna", username: "luna", balance: 720_000, photo_url: "" },
+      {
+        id: 90002,
+        rank: 0,
+        first_name: "Mina",
+        username: "mina",
+        balance: 1_080_000,
+        initials: "M",
+        tone: "#0ea5e9",
+      },
+      {
+        id: 90003,
+        rank: 0,
+        first_name: "Rex",
+        username: "rex",
+        balance: 980_000,
+        initials: "R",
+        tone: "#f97316",
+      },
+      {
+        id: 90004,
+        rank: 0,
+        first_name: "Luna",
+        username: "luna",
+        balance: 870_000,
+        initials: "L",
+        tone: "#ec4899",
+      },
+      {
+        id: 90005,
+        rank: 0,
+        first_name: "Kai",
+        username: "kai",
+        balance: 760_000,
+        initials: "K",
+        tone: "#14b8a6",
+      },
+      {
+        id: 90006,
+        rank: 0,
+        first_name: "Zara",
+        username: "zara",
+        balance: 650_000,
+        initials: "Z",
+        tone: "#eab308",
+      },
+      {
+        id: 90007,
+        rank: 0,
+        first_name: "Axel",
+        username: "axel",
+        balance: 545_000,
+        initials: "A",
+        tone: "#6366f1",
+      },
+      {
+        id: 90008,
+        rank: 0,
+        first_name: "Ivy",
+        username: "ivy",
+        balance: 460_000,
+        initials: "I",
+        tone: "#22c55e",
+      },
+      {
+        id: 90009,
+        rank: 0,
+        first_name: "Omar",
+        username: "omar",
+        balance: 380_000,
+        initials: "O",
+        tone: "#06b6d4",
+      },
+      {
+        id: 90010,
+        rank: 0,
+        first_name: "Sia",
+        username: "sia",
+        balance: 315_000,
+        initials: "S",
+        tone: "#f43f5e",
+      },
     ];
     const base = (data ?? []) as Array<any>;
     return [...base, ...fakeEntries]
@@ -913,12 +992,29 @@ function Leaderboard() {
           <div className="flex items-center gap-3">
             <span className="w-6 text-center font-bold text-[var(--gold)]">{u.rank}</span>
             {u.photo_url ? (
-              <img src={u.photo_url} className="w-7 h-7 rounded-full" alt="" />
+              <img
+                src={u.photo_url}
+                className="h-8 w-8 rounded-full object-cover"
+                alt={`${u.first_name ?? "User"} profile`}
+              />
             ) : (
-              <div className="w-7 h-7 rounded-full bg-[var(--accent)]" />
+              <div
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black text-white"
+                style={{ backgroundColor: u.tone ?? "var(--accent)" }}
+                aria-hidden="true"
+              >
+                {u.initials ?? (u.first_name ?? u.username ?? "U").slice(0, 1).toUpperCase()}
+              </div>
             )}
-            <div className="text-sm font-semibold truncate">
-              {u.first_name ?? u.username ?? `#${u.id}`}
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold">
+                {u.first_name ?? u.username ?? `#${u.id}`}
+              </div>
+              {u.username && (
+                <div className="truncate text-[10px] text-[var(--muted-foreground)]">
+                  @{u.username}
+                </div>
+              )}
             </div>
           </div>
           <div className="text-sm font-bold text-[var(--gold)]">{formatNum(Number(u.balance))}</div>
