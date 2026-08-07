@@ -19,7 +19,15 @@ console.log(
 const { count } = await svc.from("users").select("*", { count: "exact", head: true });
 console.log("[v0] total users:", count);
 
-for (const t of ["achievements", "idempotency", "tasks_done", "referrals", "audit_log", "withdrawals", "pending_referrals"]) {
+for (const t of [
+  "achievements",
+  "idempotency",
+  "tasks_done",
+  "referrals",
+  "audit_log",
+  "withdrawals",
+  "pending_referrals",
+]) {
   const { error: e, count: c } = await svc.from(t).select("*", { count: "exact", head: true });
   console.log(`[v0] table ${t}:`, e ? `ERROR ${e.message}` : `${c} rows`);
 }
