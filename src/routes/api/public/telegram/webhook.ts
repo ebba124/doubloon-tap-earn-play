@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createHash, timingSafeEqual } from "node:crypto";
 
+// Single source of truth for the mini app URL used by every bot button.
+const MINI_APP_URL = "https://doubloon-tap-earn-play.vercel.app";
+
 interface InlineKeyboardButton {
   text: string;
   url?: string;
@@ -69,6 +72,34 @@ async function sendMessage(chatId: number | string, text: string, replyMarkup?: 
   }
 }
 
+// Sets the bot's built-in menu button (next to the message box) to open the mini app.
+async function setChatMenuButton(chatId: number | string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/setChatMenuButton`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        menu_button: {
+          type: "web_app",
+          text: "🎮 Play",
+          web_app: { url: MINI_APP_URL },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error("[telegram] setChatMenuButton failed:", error);
+    }
+  } catch (error) {
+    console.error("[telegram] Error setting menu button:", error);
+  }
+}
+
 export const Route = createFileRoute("/api/public/telegram/webhook")({
   server: {
     handlers: {
@@ -88,15 +119,17 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { REQUIRED_CHANNELS } = await import("@/lib/economy.server");
           const chatId = msg.chat?.id ?? from.id;
-          const webAppUrl =
-            process.env.TELEGRAM_MINI_APP_URL ||
-            process.env.URL ||
-            "https://doubloon-tap-earn-play-five.vercel.app";
+          const webAppUrl = MINI_APP_URL;
           const name = escapeHtml(
             from.username ? `@${from.username}` : (from.first_name ?? "there"),
           );
 
           const command = text.trim().split(/\s+/)[0].toLowerCase();
+
+          // Keep the built-in menu button pointed at the current mini app URL.
+          if (command === "/start") {
+            await setChatMenuButton(chatId);
+          }
 
           // Handle /start with referral payload
           if (command === "/start") {
