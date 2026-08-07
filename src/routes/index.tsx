@@ -273,14 +273,14 @@ function EarnTab({ session }: { session: any }) {
     nonce.current = makeNonce();
     try {
       const res = await tapFn({ data: { initData: getInitData(), taps, nonce: currentNonce } });
-      setLocalBalance((prev) => {
-        const serverBalance = Number((res as any).user?.balance ?? prev);
-        if ((res as any).applied > 0 || !(res as any).duplicate) {
-          return Math.max(prev, serverBalance);
-        }
-        return prev;
-      });
-      setLocalEnergy((res as any).user?.energy ?? localEnergy);
+      const serverUser = (res as any).user;
+      const serverBalance = Number(serverUser?.balance ?? 0);
+      const perTap =
+        Number(session.user.tap_value) * Number(session.user.tap_multiplier_permanent || 1);
+      // Server balance is authoritative. Re-add only the taps that queued up
+      // while this request was in flight so the counter never drifts.
+      setLocalBalance(serverBalance + pending.current * perTap);
+      setLocalEnergy(Number(serverUser?.energy ?? localEnergy));
       qc.setQueryData(["session"], (prev: any) => (prev ? { ...prev, user: res.user } : prev));
       pushProgress((res as any).progress);
       // Level ups and achievements change the progression/achievement payload.
