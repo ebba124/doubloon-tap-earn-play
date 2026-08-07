@@ -510,6 +510,7 @@ export const completeTask = createServerFn({ method: "POST" })
 
     return {
       user: ach.user,
+      taskId: task.id,
       reward: task.reward,
       progress: {
         levelUps: [...granted.levelUps, ...ach.levelUps],
