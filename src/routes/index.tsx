@@ -900,9 +900,22 @@ function Leaderboard() {
         balance: 1_250_000,
         photo_url: "",
       },
-      { id: 90002, rank: 0, first_name: "Mina", username: "mina", balance: 980_000, photo_url: "" },
-      { id: 90003, rank: 0, first_name: "Rex", username: "rex", balance: 870_000, photo_url: "" },
-      { id: 90004, rank: 0, first_name: "Luna", username: "luna", balance: 720_000, photo_url: "" },
+      {
+        id: 90002,
+        rank: 0,
+        first_name: "Mina",
+        username: "mina",
+        balance: 1_100_000,
+        photo_url: "",
+      },
+      { id: 90003, rank: 0, first_name: "Rex", username: "rex", balance: 980_000, photo_url: "" },
+      { id: 90004, rank: 0, first_name: "Luna", username: "luna", balance: 870_000, photo_url: "" },
+      { id: 90005, rank: 0, first_name: "Kai", username: "kai", balance: 760_000, photo_url: "" },
+      { id: 90006, rank: 0, first_name: "Aria", username: "aria", balance: 650_000, photo_url: "" },
+      { id: 90007, rank: 0, first_name: "Zane", username: "zane", balance: 560_000, photo_url: "" },
+      { id: 90008, rank: 0, first_name: "Ivy", username: "ivy", balance: 480_000, photo_url: "" },
+      { id: 90009, rank: 0, first_name: "Owen", username: "owen", balance: 410_000, photo_url: "" },
+      { id: 90010, rank: 0, first_name: "Sia", username: "sia", balance: 350_000, photo_url: "" },
     ];
     const base = (data ?? []) as Array<any>;
     return [...base, ...fakeEntries]
