@@ -118,6 +118,9 @@ export async function grantProgress(
     throw new Error("Could not apply your reward. Please try again.");
   }
 
+  // The balance update is the source of truth. Audit logging is best-effort so
+  // a non-critical logging/RLS issue can never make a successful payout appear
+  // to the player as a failed reward.
   const { error: auditError } = await svc.from("audit_log").insert({
     user_id: userId,
     action: opts.action,
@@ -125,8 +128,7 @@ export async function grantProgress(
     meta: { ...(opts.meta ?? {}), gems, xp: opts.xp ?? 0, levelUps: levelUps.map((l) => l.level) },
   });
   if (auditError) {
-    console.error("[v0] grantProgress audit write failed", userId, auditError.message);
-    throw new Error("Could not record your reward. Please try again.");
+    console.error("[v0] grantProgress audit write failed after payout", userId, auditError.message);
   }
 
   return { user: fresh, levelUps, dbl, gems };
