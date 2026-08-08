@@ -269,6 +269,10 @@ export const tap = createServerFn({ method: "POST" })
       .from("idempotency")
       .insert({ key: idKey, user_id: v.user.id });
     if (idErr) {
+      if (idErr.code !== "23505") {
+        console.error("[v0] tap idempotency insert failed", idErr.message);
+        throw new Error("Could not save your taps. Please try again.");
+      }
       const u = await regenEnergy(v.user.id);
       return { user: u, applied: 0, duplicate: true };
     }
@@ -276,11 +280,14 @@ export const tap = createServerFn({ method: "POST" })
     const u = await regenEnergy(v.user.id);
     const { data: recent } = await svc
       .from("audit_log")
-      .select("delta, created_at")
+      .select("delta, meta, created_at")
       .eq("user_id", v.user.id)
       .eq("action", "tap")
       .gte("created_at", new Date(Date.now() - 1000).toISOString());
-    const recentTaps = (recent ?? []).reduce((s, r) => s + Number(r.delta ?? 0), 0);
+    const recentTaps = (recent ?? []).reduce(
+      (sum, row) => sum + Number((row.meta as { taps?: number } | null)?.taps ?? 0),
+      0,
+    );
     const allowedTaps = Math.max(0, eco.MAX_TAPS_PER_SECOND - recentTaps);
     const applyTaps = Math.min(data.taps, u.energy, allowedTaps);
     if (applyTaps <= 0) return { user: u, applied: 0, duplicate: false };
@@ -333,11 +340,11 @@ export const tap = createServerFn({ method: "POST" })
 export const claimDaily = createServerFn({ method: "POST" })
   .validator((d: { initData: string }) => initDataSchema.parse(d))
   .handler(async ({ data }) => {
-    const { verifyInitData, grantProgress, checkAchievements } = await import("./game.server");
+    const { verifyInitData, db, grantProgress, checkAchievements, regenEnergy } =
+      await import("./game.server");
     const eco = await import("./economy.server");
     const prog = await import("./progression");
     const v = await verifyInitData(data.initData);
-    const { regenEnergy } = await import("./game.server");
     const svc = db();
     const u = await regenEnergy(v.user.id);
     const now = new Date();
