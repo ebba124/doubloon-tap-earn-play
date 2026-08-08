@@ -15,26 +15,35 @@ export const getSession = createServerFn({ method: "POST" })
     const v = await verifyInitData(data.initData);
     const svc = db();
 
-    const { data: existing } = await svc
+    const profile = {
+      id: v.user.id,
+      username: v.user.username ?? null,
+      first_name: v.user.first_name ?? null,
+      last_name: v.user.last_name ?? null,
+      photo_url: v.user.photo_url ?? null,
+      language_code: v.user.language_code ?? null,
+    };
+    const { data: existing, error: existingError } = await svc
       .from("users")
       .select("*")
       .eq("id", v.user.id)
       .maybeSingle();
+    if (existingError) {
+      console.error("[v0] user lookup failed before reward", existingError.message);
+      throw new Error("Could not load your game profile. Please try again.");
+    }
     let user = existing;
     if (!user) {
-      const insertRes = await svc
+      const { data: created, error: createError } = await svc
         .from("users")
-        .insert({
-          id: v.user.id,
-          username: v.user.username ?? null,
-          first_name: v.user.first_name ?? null,
-          last_name: v.user.last_name ?? null,
-          photo_url: v.user.photo_url ?? null,
-          language_code: v.user.language_code ?? null,
-        })
+        .upsert(profile, { onConflict: "id" })
         .select("*")
         .single();
-      user = insertRes.data!;
+      if (createError || !created) {
+        console.error("[v0] user creation failed before reward", createError?.message);
+        throw new Error("Could not create your game profile. Please try again.");
+      }
+      user = created;
 
       let referrerId: number | null = null;
       if (v.start_param?.startsWith("ref_")) {
@@ -61,17 +70,21 @@ export const getSession = createServerFn({ method: "POST" })
             referrer_id: referrerId,
             referred_id: v.user.id,
           });
-          await grantProgress(referrerId, {
-            dbl: eco.REFERRAL_REWARD_PER_FRIEND,
-            xp: prog.XP_PER_REFERRAL,
-            action: "referral_reward",
-            meta: { referred_id: v.user.id },
-          });
-          await grantProgress(v.user.id, {
-            dbl: eco.REFERRAL_REWARD_FOR_INVITEE,
-            action: "referral_welcome",
-            meta: { referrer_id: referrerId },
-          });
+          try {
+            await grantProgress(referrerId, {
+              dbl: eco.REFERRAL_REWARD_PER_FRIEND,
+              xp: prog.XP_PER_REFERRAL,
+              action: "referral_reward",
+              meta: { referred_id: v.user.id },
+            });
+            await grantProgress(v.user.id, {
+              dbl: eco.REFERRAL_REWARD_FOR_INVITEE,
+              action: "referral_welcome",
+              meta: { referrer_id: referrerId },
+            });
+          } catch (error) {
+            console.error("[v0] referral reward failed after profile creation", error);
+          }
           const { count } = await svc
             .from("referrals")
             .select("*", { count: "exact", head: true })
