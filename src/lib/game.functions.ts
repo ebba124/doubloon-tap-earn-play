@@ -378,12 +378,9 @@ export const claimDaily = createServerFn({ method: "POST" })
     const base = eco.DAILY_STREAK_REWARDS[day - 1];
     const multiplier = prog.streakMultiplier(day);
     const reward = Math.floor(base * multiplier) + comebackBonus;
-    const gems = prog.GEMS_PER_DAILY + (day % 7 === 0 ? prog.GEMS_WEEKLY_BONUS : 0);
     if (day % 7 === 0) freezes = Math.min(prog.MAX_STREAK_FREEZES, freezes + 1);
     const granted = await grantProgress(v.user.id, {
       dbl: reward,
-      gems,
-      xp: prog.XP_PER_DAILY + day * 5,
       patch: {
         streak_day: day,
         longest_streak: Math.max(Number(u.longest_streak ?? 0), day),
@@ -688,7 +685,6 @@ export const spin = createServerFn({ method: "POST" })
     try {
       const granted = await grantProgress(v.user.id, {
         dbl: prize.amount,
-        xp: prog.XP_PER_SPIN,
         action: "spin",
         meta: { prizeIndex, label: prize.label },
       });
