@@ -389,30 +389,37 @@ export const claimDaily = createServerFn({ method: "POST" })
     const multiplier = prog.streakMultiplier(day);
     const reward = Math.floor(base * multiplier) + comebackBonus;
     if (day % 7 === 0) freezes = Math.min(prog.MAX_STREAK_FREEZES, freezes + 1);
-    const granted = await grantProgress(v.user.id, {
-      // Daily claims award DBL only; XP and gems are intentionally untouched.
-      dbl: reward,
-      patch: {
+    const { data: updatedUser, error: updateError } = await svc
+      .from("users")
+      .update({
+        balance: Number(u.balance ?? 0) + reward,
         streak_day: day,
         longest_streak: Math.max(Number(u.longest_streak ?? 0), day),
         streak_freezes: freezes,
         last_daily_claim: now.toISOString(),
-      },
-      action: "daily_claim",
-      meta: { day, base, multiplier, freezeUsed, comebackBonus },
-    });
-    let ach: Awaited<ReturnType<typeof checkAchievements>> = {
-      user: granted.user,
-      levelUps: [],
-      unlocked: [],
-    };
-    try {
-      ach = await checkAchievements(v.user.id);
-    } catch (error) {
-      console.error("[v0] daily achievement check failed after payout", error);
+      })
+      .eq("id", v.user.id)
+      .select("*")
+      .maybeSingle();
+
+    if (updateError || !updatedUser) {
+      console.error("[v0] daily reward update failed", updateError?.message ?? "user not updated");
+      throw new Error("Daily reward could not be claimed. Please try again.");
     }
+
+    try {
+      await svc.from("audit_log").insert({
+        user_id: v.user.id,
+        action: "daily_claim",
+        delta: reward,
+        meta: { day, base, multiplier, freezeUsed, comebackBonus },
+      });
+    } catch (error) {
+      console.error("[v0] daily claim audit failed", error);
+    }
+
     return {
-      user: ach.user,
+      user: updatedUser,
       claimed: reward,
       reason: "ok" as const,
       day,
@@ -420,10 +427,7 @@ export const claimDaily = createServerFn({ method: "POST" })
       gems: 0,
       freezeUsed,
       comebackBonus,
-      progress: {
-        levelUps: [...granted.levelUps, ...ach.levelUps],
-        unlocked: ach.unlocked as unknown[],
-      },
+      progress: { levelUps: [], unlocked: [] as unknown[] },
     };
   });
 
