@@ -333,16 +333,11 @@ export const tap = createServerFn({ method: "POST" })
 export const claimDaily = createServerFn({ method: "POST" })
   .validator((d: { initData: string }) => initDataSchema.parse(d))
   .handler(async ({ data }) => {
-    const { verifyInitData, checkRequiredChannels, grantProgress, checkAchievements } =
-      await import("./game.server");
+    const { verifyInitData, grantProgress, checkAchievements } = await import("./game.server");
     const eco = await import("./economy.server");
     const prog = await import("./progression");
     const v = await verifyInitData(data.initData);
-    const gate = await checkRequiredChannels(v.user.id);
-    if (!gate.ok) {
-      throw new Error(`Join our channels first: ${gate.missing.map((c) => c.label).join(", ")}`);
-    }
-    const { db, regenEnergy } = await import("./game.server");
+    const { regenEnergy } = await import("./game.server");
     const svc = db();
     const u = await regenEnergy(v.user.id);
     const now = new Date();
