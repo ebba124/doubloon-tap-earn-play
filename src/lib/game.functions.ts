@@ -65,12 +65,16 @@ export const getSession = createServerFn({ method: "POST" })
           .eq("id", referrerId)
           .maybeSingle();
         if (refExists) {
-          await svc.from("users").update({ referred_by: referrerId }).eq("id", v.user.id);
-          await svc.from("referrals").insert({
-            referrer_id: referrerId,
-            referred_id: v.user.id,
-          });
           try {
+            await svc.from("users").update({ referred_by: referrerId }).eq("id", v.user.id);
+            const { error: referralError } = await svc.from("referrals").insert({
+              referrer_id: referrerId,
+              referred_id: v.user.id,
+            });
+            if (referralError && referralError.code !== "23505") {
+              throw referralError;
+            }
+
             await grantProgress(referrerId, {
               dbl: eco.REFERRAL_REWARD_PER_FRIEND,
               xp: prog.XP_PER_REFERRAL,
@@ -82,22 +86,23 @@ export const getSession = createServerFn({ method: "POST" })
               action: "referral_welcome",
               meta: { referrer_id: referrerId },
             });
+
+            const { count } = await svc
+              .from("referrals")
+              .select("*", { count: "exact", head: true })
+              .eq("referrer_id", referrerId);
+            if ((count ?? 0) === eco.REFERRAL_MILESTONE_COUNT) {
+              await svc.from("users").update({ tap_multiplier_permanent: 2 }).eq("id", referrerId);
+              await incBalance(referrerId, eco.REFERRAL_MILESTONE_BONUS);
+              await svc.from("audit_log").insert({
+                user_id: referrerId,
+                action: "referral_milestone",
+                delta: eco.REFERRAL_MILESTONE_BONUS,
+                meta: { count },
+              });
+            }
           } catch (error) {
-            console.error("[v0] referral reward failed after profile creation", error);
-          }
-          const { count } = await svc
-            .from("referrals")
-            .select("*", { count: "exact", head: true })
-            .eq("referrer_id", referrerId);
-          if ((count ?? 0) === eco.REFERRAL_MILESTONE_COUNT) {
-            await svc.from("users").update({ tap_multiplier_permanent: 2 }).eq("id", referrerId);
-            await incBalance(referrerId, eco.REFERRAL_MILESTONE_BONUS);
-            await svc.from("audit_log").insert({
-              user_id: referrerId,
-              action: "referral_milestone",
-              delta: eco.REFERRAL_MILESTONE_BONUS,
-              meta: { count },
-            });
+            console.error("[v0] referral reward failed", error);
           }
         }
         await svc.from("pending_referrals").delete().eq("referred_id", v.user.id);

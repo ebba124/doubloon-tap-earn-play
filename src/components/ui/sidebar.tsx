@@ -696,6 +696,8 @@ const SidebarMenuSubButton = React.forwardRef<
 });
 SidebarMenuSubButton.displayName = "SidebarMenuSubButton";
 
+// This shadcn utility intentionally exports the provider hook with its components.
+/* eslint-disable react-refresh/only-export-components */
 export {
   Sidebar,
   SidebarContent,
