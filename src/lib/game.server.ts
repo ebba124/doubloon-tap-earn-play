@@ -110,7 +110,7 @@ export async function grantProgress(
     levelUps.push({ level: l, title: prog.levelTitle(l), ...reward });
   }
 
-  const { data: fresh, error: updateError } = await svc
+  const { error: updateError } = await svc
     .from("users")
     .update({
       ...(opts.patch ?? {}),
@@ -119,12 +119,33 @@ export async function grantProgress(
       xp,
       level,
     })
-    .eq("id", userId)
-    .select("*")
-    .single();
-  if (updateError || !fresh) {
-    console.error("[v0] grantProgress balance update failed", userId, updateError?.message);
+    .eq("id", userId);
+  if (updateError) {
+    console.error("[v0] grantProgress balance update failed", userId, updateError.message);
     throw new Error("Could not apply your reward. Please try again.");
+  }
+
+  const { data: fresh, error: freshError } = await svc
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .single();
+  const returnedUser =
+    fresh ??
+    ({
+      ...u,
+      ...(opts.patch ?? {}),
+      balance: Number(u.balance) + dbl,
+      gems: Number(u.gems ?? 0) + gems,
+      xp,
+      level,
+    } as typeof u);
+  if (freshError || !fresh) {
+    console.error(
+      "[v0] grantProgress fresh user lookup failed after payout",
+      userId,
+      freshError?.message,
+    );
   }
 
   // The balance update is the source of truth. Audit logging is best-effort so
@@ -140,7 +161,7 @@ export async function grantProgress(
     console.error("[v0] grantProgress audit write failed after payout", userId, auditError.message);
   }
 
-  return { user: fresh, levelUps, dbl, gems };
+  return { user: returnedUser, levelUps, dbl, gems };
 }
 
 /**
