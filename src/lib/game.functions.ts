@@ -346,7 +346,15 @@ export const claimDaily = createServerFn({ method: "POST" })
     const prog = await import("./progression");
     const v = await verifyInitData(data.initData);
     const svc = db();
-    const u = await regenEnergy(v.user.id);
+    const { data: u, error: userError } = await svc
+      .from("users")
+      .select("*")
+      .eq("id", v.user.id)
+      .maybeSingle();
+    if (userError || !u) {
+      console.error("[v0] daily claim user lookup failed", userError?.message ?? "user not found");
+      throw new Error("Could not load your game profile. Please try again.");
+    }
     const now = new Date();
     const last = u.last_daily_claim ? new Date(u.last_daily_claim) : null;
     const gapHours = last ? (now.getTime() - last.getTime()) / 3.6e6 : Number.POSITIVE_INFINITY;
@@ -382,6 +390,7 @@ export const claimDaily = createServerFn({ method: "POST" })
     const reward = Math.floor(base * multiplier) + comebackBonus;
     if (day % 7 === 0) freezes = Math.min(prog.MAX_STREAK_FREEZES, freezes + 1);
     const granted = await grantProgress(v.user.id, {
+      // Daily claims award DBL only; XP and gems are intentionally untouched.
       dbl: reward,
       patch: {
         streak_day: day,
