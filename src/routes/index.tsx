@@ -18,7 +18,6 @@ import { SettingsSheet } from "@/components/settings-sheet";
 import { WinOverlay } from "@/components/win-overlay";
 import { playTap, playClaim, primeAudio } from "@/lib/sound";
 import { Settings } from "lucide-react";
-import { LevelBar } from "@/components/level-bar";
 import { StreakCard } from "@/components/streak-card";
 import { AchievementsPanel } from "@/components/achievements-panel";
 import { ProgressPopups } from "@/components/progress-popups";
@@ -163,7 +162,6 @@ function App({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
         onOpenSettings={() => setSettingsOpen(true)}
         onRefresh={() => refetch()}
       />
-      <LevelBar session={data} />
       <ProgressPopups />
       {tab === "earn" && <EarnTab session={data} />}
       {tab === "spin" && <SpinWheel session={data} />}
