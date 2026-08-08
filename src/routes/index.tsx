@@ -343,7 +343,7 @@ function EarnTab({ session }: { session: any }) {
     },
     onError: (e: any) => {
       haptic("medium");
-      getWebApp()?.showAlert?.(e?.message ?? "You must join all our channels before claiming.");
+      getWebApp()?.showAlert?.(e?.message ?? "Daily reward could not be claimed. Please try again.");
       qc.invalidateQueries({ queryKey: ["session"] });
     },
   });
@@ -362,7 +362,6 @@ function EarnTab({ session }: { session: any }) {
         title="Daily reward!"
         onClose={() => setDailyWin({ open: false, amount: 0 })}
       />
-      <ChannelGate session={session} />
       <div className="balance-hero">
         <span>🪙</span>
         <span>{formatNum(localBalance)}</span>
