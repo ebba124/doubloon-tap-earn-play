@@ -18,12 +18,21 @@ export function db() {
 
 export async function incBalance(userId: number, delta: number) {
   const svc = db();
-  const { data } = await svc.from("users").select("balance").eq("id", userId).single();
-  if (!data) return;
-  await svc
+  const { data, error: readError } = await svc
+    .from("users")
+    .select("balance")
+    .eq("id", userId)
+    .single();
+  if (readError || !data) throw new Error("Could not load your balance. Please try again.");
+
+  const { error: updateError } = await svc
     .from("users")
     .update({ balance: Number(data.balance) + delta })
     .eq("id", userId);
+  if (updateError) {
+    console.error("[v0] balance increment failed", userId, updateError.message);
+    throw new Error("Could not apply your reward. Please try again.");
+  }
 }
 
 export async function regenEnergy(userId: number) {
