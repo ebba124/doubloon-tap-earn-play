@@ -74,7 +74,9 @@
   body {
     width: 100%;
     max-width: 100%;
+    min-height: 100%;
     overflow-x: hidden;
+    overflow-y: auto;
     background-color: var(--color-background);
     color: var(--color-foreground);
     background-image:
@@ -82,7 +84,8 @@
       radial-gradient(800px 600px at 100% 100%, oklch(0.25 0.05 55 / 0.5), transparent 60%);
     background-attachment: fixed;
     min-height: 100vh;
-    overscroll-behavior: none;
+    overscroll-behavior-y: auto;
+    touch-action: pan-y;
   }
   body {
     font-family:

@@ -375,7 +375,16 @@ export const claimDaily = createServerFn({ method: "POST" })
       meta: { day, base, multiplier, freezeUsed, comebackBonus },
     });
 
-    const ach = await checkAchievements(v.user.id);
+    let ach: Awaited<ReturnType<typeof checkAchievements>> = {
+      user: granted.user,
+      levelUps: [],
+      unlocked: [],
+    };
+    try {
+      ach = await checkAchievements(v.user.id);
+    } catch (error) {
+      console.error("[v0] daily achievement check failed after payout", error);
+    }
 
     return {
       user: ach.user,
@@ -494,29 +503,49 @@ export const completeTask = createServerFn({ method: "POST" })
       }
     }
 
-    const { error: dupErr } = await svc.from("tasks_done").insert({
-      user_id: v.user.id,
-      task_id: task.id,
-    });
-    if (dupErr) throw new Error("Task already claimed");
+    const { data: completed, error: dupErr } = await svc
+      .from("tasks_done")
+      .insert({ user_id: v.user.id, task_id: task.id })
+      .select("task_id")
+      .single();
+    if (dupErr || !completed) {
+      if (dupErr?.code === "23505") throw new Error("Task already claimed");
+      console.error("[v0] task completion reservation failed", dupErr?.message);
+      throw new Error("Could not reserve this task. Please try again.");
+    }
 
-    const granted = await grantProgress(v.user.id, {
-      dbl: task.reward,
-      xp: prog.XP_PER_TASK,
-      action: "task_complete",
-      meta: { task: task.id },
-    });
-    const ach = await checkAchievements(v.user.id);
+    try {
+      const granted = await grantProgress(v.user.id, {
+        dbl: task.reward,
+        xp: prog.XP_PER_TASK,
+        action: "task_complete",
+        meta: { task: task.id },
+      });
+      let ach: Awaited<ReturnType<typeof checkAchievements>> = {
+        user: granted.user,
+        levelUps: [],
+        unlocked: [],
+      };
+      try {
+        ach = await checkAchievements(v.user.id);
+      } catch (error) {
+        console.error("[v0] task achievement check failed after payout", error);
+      }
 
-    return {
-      user: ach.user,
-      taskId: task.id,
-      reward: task.reward,
-      progress: {
-        levelUps: [...granted.levelUps, ...ach.levelUps],
-        unlocked: ach.unlocked as unknown[],
-      },
-    };
+      return {
+        user: ach.user,
+        taskId: task.id,
+        reward: task.reward,
+        progress: {
+          levelUps: [...granted.levelUps, ...ach.levelUps],
+          unlocked: ach.unlocked as unknown[],
+        },
+      };
+    } catch (error) {
+      // Do not leave a task marked complete when the balance write failed.
+      await svc.from("tasks_done").delete().eq("user_id", v.user.id).eq("task_id", task.id);
+      throw error;
+    }
   });
 
 // --- requestWithdraw --------------------------------------------------------
