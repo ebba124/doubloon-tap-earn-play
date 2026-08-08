@@ -406,7 +406,7 @@ export const claimDaily = createServerFn({ method: "POST" })
       reason: "ok" as const,
       day,
       multiplier,
-      gems,
+      gems: 0,
       freezeUsed,
       comebackBonus,
       progress: {
