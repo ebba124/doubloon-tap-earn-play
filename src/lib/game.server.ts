@@ -103,6 +103,7 @@ export async function grantProgress(
   }
   if (!u) throw new Error("User not found");
 
+  const shouldUpdateProgression = opts.xp !== undefined || opts.gems !== undefined;
   const xp = Number(u.xp ?? 0) + (opts.xp ?? 0);
   const prevLevel = Number(u.level ?? 1);
   const level = Math.max(prevLevel, prog.levelForXp(xp));
@@ -110,19 +111,21 @@ export async function grantProgress(
   let dbl = opts.dbl ?? 0;
   let gems = opts.gems ?? 0;
   const levelUps: LevelUp[] = [];
-  for (let l = prevLevel + 1; l <= level; l++) {
-    const reward = prog.levelUpReward(l);
-    dbl += reward.dbl;
-    gems += reward.gems;
-    levelUps.push({ level: l, title: prog.levelTitle(l), ...reward });
+  if (shouldUpdateProgression) {
+    for (let l = prevLevel + 1; l <= level; l++) {
+      const reward = prog.levelUpReward(l);
+      dbl += reward.dbl;
+      gems += reward.gems;
+      levelUps.push({ level: l, title: prog.levelTitle(l), ...reward });
+    }
   }
 
   const updatePayload = {
     ...(opts.patch ?? {}),
     balance: Number(u.balance) + dbl,
-    gems: Number(u.gems ?? 0) + gems,
-    xp,
-    level,
+    ...(shouldUpdateProgression
+      ? { gems: Number(u.gems ?? 0) + gems, xp, level }
+      : {}),
   };
 
   let updateError: { message: string } | null = null;
@@ -138,8 +141,9 @@ export async function grantProgress(
     if (!updateError && result.data) {
       applied =
         Number(result.data.balance) === updatePayload.balance &&
-        Number(result.data.gems) === updatePayload.gems &&
-        Number(result.data.xp) === updatePayload.xp;
+        (!shouldUpdateProgression ||
+          (Number(result.data.gems) === updatePayload.gems &&
+            Number(result.data.xp) === updatePayload.xp));
       if (applied) break;
     }
 
