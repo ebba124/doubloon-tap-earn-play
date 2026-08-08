@@ -135,7 +135,7 @@ export async function grantProgress(
       .from("users")
       .update(updatePayload)
       .eq("id", userId)
-      .select("balance, gems, xp, level")
+      .select("*")
       .maybeSingle();
     updateError = result.error;
     if (!updateError && result.data) {
@@ -151,14 +151,15 @@ export async function grantProgress(
     // before retrying so a committed first request is never reported as failed.
     const { data: verified } = await svc
       .from("users")
-      .select("balance, gems, xp, level")
+      .select("*")
       .eq("id", userId)
       .maybeSingle();
     applied =
       !!verified &&
       Number(verified.balance) === updatePayload.balance &&
-      Number(verified.gems) === updatePayload.gems &&
-      Number(verified.xp) === updatePayload.xp;
+      (!shouldUpdateProgression ||
+        (Number(verified.gems) === updatePayload.gems &&
+          Number(verified.xp) === updatePayload.xp));
     if (applied) break;
     await new Promise((resolve) => setTimeout(resolve, 300));
   }
