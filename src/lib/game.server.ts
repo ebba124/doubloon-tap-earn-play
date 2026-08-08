@@ -126,35 +126,45 @@ export async function grantProgress(
   };
 
   let updateError: { message: string } | null = null;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const result = await svc.from("users").update(updatePayload).eq("id", userId);
+  let applied = false;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const result = await svc
+      .from("users")
+      .update(updatePayload)
+      .eq("id", userId)
+      .select("balance, gems, xp, level")
+      .maybeSingle();
     updateError = result.error;
-    if (!updateError) break;
+    if (!updateError && result.data) {
+      applied =
+        Number(result.data.balance) === updatePayload.balance &&
+        Number(result.data.gems) === updatePayload.gems &&
+        Number(result.data.xp) === updatePayload.xp;
+      if (applied) break;
+    }
 
-    // A Telegram Mini App can briefly lose its connection. Retry once before
-    // reporting a payout failure to the player.
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-
-  if (updateError) {
-    // Confirm whether the first request actually committed before failing.
+    // Telegram Mini Apps can briefly lose their connection. Re-read the row
+    // before retrying so a committed first request is never reported as failed.
     const { data: verified } = await svc
       .from("users")
       .select("balance, gems, xp, level")
       .eq("id", userId)
-      .single();
-    const wasApplied =
-      verified &&
+      .maybeSingle();
+    applied =
+      !!verified &&
       Number(verified.balance) === updatePayload.balance &&
       Number(verified.gems) === updatePayload.gems &&
       Number(verified.xp) === updatePayload.xp;
-    if (!wasApplied) {
-      console.error("[v0] grantProgress balance update failed", {
-        userId,
-        message: updateError.message,
-      });
-      throw new Error("Could not apply your reward. Please try again.");
-    }
+    if (applied) break;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+
+  if (!applied) {
+    console.error("[v0] grantProgress balance update failed", {
+      userId,
+      message: updateError?.message ?? "no row was updated",
+    });
+    throw new Error("Could not apply your reward. Please try again.");
   }
 
   const { data: fresh, error: freshError } = await svc
