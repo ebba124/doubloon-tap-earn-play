@@ -292,10 +292,14 @@ export const tap = createServerFn({ method: "POST" })
     let levelUps = granted.levelUps;
     let fresh = granted.user;
     if (crossedTapMilestone || granted.levelUps.length > 0) {
-      const ach = await checkAchievements(v.user.id);
-      unlocked = ach.unlocked;
-      levelUps = [...levelUps, ...ach.levelUps];
-      fresh = ach.user;
+      try {
+        const ach = await checkAchievements(v.user.id);
+        unlocked = ach.unlocked;
+        levelUps = [...levelUps, ...ach.levelUps];
+        fresh = ach.user;
+      } catch (error) {
+        console.error("[v0] tap achievement check failed after payout", error);
+      }
     }
 
     return {
@@ -311,20 +315,22 @@ export const tap = createServerFn({ method: "POST" })
 export const claimDaily = createServerFn({ method: "POST" })
   .validator((d: { initData: string }) => initDataSchema.parse(d))
   .handler(async ({ data }) => {
-    const { verifyInitData, regenEnergy, checkRequiredChannels, grantProgress, checkAchievements } =
+    const { verifyInitData, checkRequiredChannels, grantProgress, checkAchievements } =
       await import("./game.server");
     const eco = await import("./economy.server");
     const prog = await import("./progression");
     const v = await verifyInitData(data.initData);
     const gate = await checkRequiredChannels(v.user.id);
-    if (!gate.ok)
+    if (!gate.ok) {
       throw new Error(`Join our channels first: ${gate.missing.map((c) => c.label).join(", ")}`);
+    }
+    const { db, regenEnergy } = await import("./game.server");
+    const svc = db();
     const u = await regenEnergy(v.user.id);
-
     const now = new Date();
     const last = u.last_daily_claim ? new Date(u.last_daily_claim) : null;
-    const gapHours = last ? (now.getTime() - last.getTime()) / (1000 * 60 * 60) : 0;
-    if (last && gapHours < 20)
+    const gapHours = last ? (now.getTime() - last.getTime()) / 3.6e6 : Number.POSITIVE_INFINITY;
+    if (last && gapHours < 20) {
       return {
         user: u,
         claimed: 0,
@@ -336,15 +342,13 @@ export const claimDaily = createServerFn({ method: "POST" })
         comebackBonus: 0,
         progress: { levelUps: [], unlocked: [] as unknown[] },
       };
-
+    }
     let day = Number(u.streak_day ?? 0);
     let freezes = Number(u.streak_freezes ?? 0);
     let freezeUsed = false;
     let comebackBonus = 0;
-
     if (last && gapHours > 48) {
       if (gapHours <= prog.STREAK_FREEZE_WINDOW_HOURS && freezes > 0) {
-        // A stored freeze rescues the streak instead of resetting it.
         freezes -= 1;
         freezeUsed = true;
       } else {
@@ -352,15 +356,12 @@ export const claimDaily = createServerFn({ method: "POST" })
         day = 0;
       }
     }
-
     day = Math.min(day + 1, eco.DAILY_STREAK_REWARDS.length);
     const base = eco.DAILY_STREAK_REWARDS[day - 1];
     const multiplier = prog.streakMultiplier(day);
     const reward = Math.floor(base * multiplier) + comebackBonus;
     const gems = prog.GEMS_PER_DAILY + (day % 7 === 0 ? prog.GEMS_WEEKLY_BONUS : 0);
-    // Every completed week banks a streak freeze, up to the cap.
     if (day % 7 === 0) freezes = Math.min(prog.MAX_STREAK_FREEZES, freezes + 1);
-
     const granted = await grantProgress(v.user.id, {
       dbl: reward,
       gems,
@@ -374,7 +375,6 @@ export const claimDaily = createServerFn({ method: "POST" })
       action: "daily_claim",
       meta: { day, base, multiplier, freezeUsed, comebackBonus },
     });
-
     let ach: Awaited<ReturnType<typeof checkAchievements>> = {
       user: granted.user,
       levelUps: [],
@@ -385,7 +385,6 @@ export const claimDaily = createServerFn({ method: "POST" })
     } catch (error) {
       console.error("[v0] daily achievement check failed after payout", error);
     }
-
     return {
       user: ach.user,
       claimed: reward,
@@ -400,6 +399,94 @@ export const claimDaily = createServerFn({ method: "POST" })
         unlocked: ach.unlocked as unknown[],
       },
     };
+  });
+
+// --- completeTask -----------------------------------------------------------
+
+export const completeTask = createServerFn({ method: "POST" })
+  .validator((d: { initData: string; taskId: string }) =>
+    z.object({ initData: z.string().min(1), taskId: z.string() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { verifyInitData, db, checkRequiredChannels, grantProgress, checkAchievements } =
+      await import("./game.server");
+    const eco = await import("./economy.server");
+    const prog = await import("./progression");
+    const v = await verifyInitData(data.initData);
+    const svc = db();
+    const task = eco.TASKS.find((t) => t.id === data.taskId);
+    if (!task) throw new Error("Unknown task");
+    const gate = await checkRequiredChannels(v.user.id);
+    if (!gate.ok)
+      throw new Error(`Join our channels first: ${gate.missing.map((c) => c.label).join(", ")}`);
+    if (task.id === "invite_1") {
+      const { count } = await svc
+        .from("referrals")
+        .select("*", { count: "exact", head: true })
+        .eq("referrer_id", v.user.id);
+      if ((count ?? 0) < 1) throw new Error("Invite a friend first");
+    }
+    if (task.kind === "channel" && task.chat) {
+      const token = process.env.TELEGRAM_BOT_TOKEN;
+      if (!token) throw new Error("Verification unavailable, try again later");
+      const res = await fetch(`https://api.telegram.org/bot${token}/getChatMember`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chat_id: task.chat, user_id: v.user.id }),
+      });
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        result?: { status?: string };
+      } | null;
+      if (!json?.ok) throw new Error("Could not verify your subscription. Try again in a moment.");
+      if (
+        !["creator", "administrator", "member", "restricted"].includes(
+          json.result?.status ?? "left",
+        )
+      )
+        throw new Error("Join the channel first, then claim.");
+    }
+    const { data: completed, error: dupErr } = await svc
+      .from("tasks_done")
+      .insert({ user_id: v.user.id, task_id: task.id })
+      .select("task_id")
+      .single();
+    if (dupErr || !completed)
+      throw new Error(
+        dupErr?.code === "23505"
+          ? "Task already claimed"
+          : "Could not reserve this task. Please try again.",
+      );
+    try {
+      const granted = await grantProgress(v.user.id, {
+        dbl: task.reward,
+        xp: prog.XP_PER_TASK,
+        action: "task_complete",
+        meta: { task: task.id },
+      });
+      let ach: Awaited<ReturnType<typeof checkAchievements>> = {
+        user: granted.user,
+        levelUps: [],
+        unlocked: [],
+      };
+      try {
+        ach = await checkAchievements(v.user.id);
+      } catch (error) {
+        console.error("[v0] task achievement check failed after payout", error);
+      }
+      return {
+        user: ach.user,
+        taskId: task.id,
+        reward: task.reward,
+        progress: {
+          levelUps: [...granted.levelUps, ...ach.levelUps],
+          unlocked: ach.unlocked as unknown[],
+        },
+      };
+    } catch (error) {
+      await svc.from("tasks_done").delete().eq("user_id", v.user.id).eq("task_id", task.id);
+      throw error;
+    }
   });
 
 // --- buyBoost ---------------------------------------------------------------
@@ -421,131 +508,46 @@ export const buyBoost = createServerFn({ method: "POST" })
     const svc = db();
     const boost = eco.BOOSTS.find((b) => b.id === data.boostId);
     if (!boost) throw new Error("Unknown boost");
-
     const idKey = `boost:${v.user.id}:${data.nonce}`;
     const { error: idErr } = await svc
       .from("idempotency")
       .insert({ key: idKey, user_id: v.user.id });
     if (idErr) {
-      const u = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
-      return { user: u, duplicate: true, cost: 0 };
+      const { data: duplicateUser } = await svc
+        .from("users")
+        .select("*")
+        .eq("id", v.user.id)
+        .single();
+      return { user: duplicateUser, duplicate: true, cost: 0 };
     }
-
-    const u = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
-    const currentLevel = boost.id === "multitap" ? u.multitap_level : u.energy_limit_level;
+    const { data: u, error: userError } = await svc
+      .from("users")
+      .select("*")
+      .eq("id", v.user.id)
+      .single();
+    if (userError || !u) throw new Error("Could not load your balance. Please try again.");
+    const currentLevel =
+      boost.id === "multitap" ? Number(u.multitap_level) : Number(u.energy_limit_level);
     if (currentLevel >= boost.maxLevel) throw new Error("Boost at max level");
     const cost = eco.boostCost(boost, currentLevel);
     if (Number(u.balance) < cost) throw new Error("Not enough DBL");
-
     const patch = boost.apply(u);
-    await svc
+    const { error: updateError } = await svc
       .from("users")
       .update({ ...patch, balance: Number(u.balance) - cost })
       .eq("id", v.user.id);
+    if (updateError) {
+      await svc.from("idempotency").delete().eq("key", idKey).eq("user_id", v.user.id);
+      throw new Error("Could not apply boost. Please try again.");
+    }
     await svc.from("audit_log").insert({
       user_id: v.user.id,
       action: "boost_buy",
       delta: -cost,
       meta: { boost: boost.id, level: currentLevel + 1 },
     });
-    const fresh = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
+    const { data: fresh } = await svc.from("users").select("*").eq("id", v.user.id).single();
     return { user: fresh, duplicate: false, cost };
-  });
-
-// --- completeTask -----------------------------------------------------------
-
-export const completeTask = createServerFn({ method: "POST" })
-  .validator((d: { initData: string; taskId: string }) =>
-    z.object({ initData: z.string().min(1), taskId: z.string() }).parse(d),
-  )
-  .handler(async ({ data }) => {
-    const { verifyInitData, db, checkRequiredChannels, grantProgress, checkAchievements } =
-      await import("./game.server");
-    const eco = await import("./economy.server");
-    const prog = await import("./progression");
-    const v = await verifyInitData(data.initData);
-    const svc = db();
-    const task = eco.TASKS.find((t) => t.id === data.taskId);
-    if (!task) throw new Error("Unknown task");
-
-    const gate = await checkRequiredChannels(v.user.id);
-    if (!gate.ok)
-      throw new Error(`Join our channels first: ${gate.missing.map((c) => c.label).join(", ")}`);
-
-    if (task.id === "invite_1") {
-      const { count } = await svc
-        .from("referrals")
-        .select("*", { count: "exact", head: true })
-        .eq("referrer_id", v.user.id);
-      if ((count ?? 0) < 1) throw new Error("Invite a friend first");
-    }
-
-    if (task.kind === "channel" && task.chat) {
-      const token = process.env.TELEGRAM_BOT_TOKEN;
-      if (!token) throw new Error("Verification unavailable, try again later");
-      const res = await fetch(`https://api.telegram.org/bot${token}/getChatMember`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chat_id: task.chat, user_id: v.user.id }),
-      });
-      const json = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        result?: { status?: string };
-        description?: string;
-      } | null;
-      if (!json?.ok) {
-        console.error("getChatMember failed", task.chat, json?.description);
-        throw new Error("Could not verify your subscription. Try again in a moment.");
-      }
-      const status = json.result?.status ?? "left";
-      if (!["creator", "administrator", "member", "restricted"].includes(status)) {
-        throw new Error("Join the channel first, then claim.");
-      }
-    }
-
-    const { data: completed, error: dupErr } = await svc
-      .from("tasks_done")
-      .insert({ user_id: v.user.id, task_id: task.id })
-      .select("task_id")
-      .single();
-    if (dupErr || !completed) {
-      if (dupErr?.code === "23505") throw new Error("Task already claimed");
-      console.error("[v0] task completion reservation failed", dupErr?.message);
-      throw new Error("Could not reserve this task. Please try again.");
-    }
-
-    try {
-      const granted = await grantProgress(v.user.id, {
-        dbl: task.reward,
-        xp: prog.XP_PER_TASK,
-        action: "task_complete",
-        meta: { task: task.id },
-      });
-      let ach: Awaited<ReturnType<typeof checkAchievements>> = {
-        user: granted.user,
-        levelUps: [],
-        unlocked: [],
-      };
-      try {
-        ach = await checkAchievements(v.user.id);
-      } catch (error) {
-        console.error("[v0] task achievement check failed after payout", error);
-      }
-
-      return {
-        user: ach.user,
-        taskId: task.id,
-        reward: task.reward,
-        progress: {
-          levelUps: [...granted.levelUps, ...ach.levelUps],
-          unlocked: ach.unlocked as unknown[],
-        },
-      };
-    } catch (error) {
-      // Do not leave a task marked complete when the balance write failed.
-      await svc.from("tasks_done").delete().eq("user_id", v.user.id).eq("task_id", task.id);
-      throw error;
-    }
   });
 
 // --- requestWithdraw --------------------------------------------------------
@@ -665,27 +667,41 @@ export const spin = createServerFn({ method: "POST" })
     const prizeIndex = eco.pickSpinPrize();
     const prize = eco.SPIN_PRIZES[prizeIndex];
 
-    const granted = await grantProgress(v.user.id, {
-      dbl: prize.amount,
-      xp: prog.XP_PER_SPIN,
-      action: "spin",
-      meta: { prizeIndex, label: prize.label },
-    });
-    const ach = await checkAchievements(v.user.id);
+    try {
+      const granted = await grantProgress(v.user.id, {
+        dbl: prize.amount,
+        xp: prog.XP_PER_SPIN,
+        action: "spin",
+        meta: { prizeIndex, label: prize.label },
+      });
+      let ach: Awaited<ReturnType<typeof checkAchievements>> = {
+        user: granted.user,
+        levelUps: [],
+        unlocked: [],
+      };
+      try {
+        ach = await checkAchievements(v.user.id);
+      } catch (error) {
+        console.error("[v0] spin achievement check failed after payout", error);
+      }
 
-    const nextSpinAt = new Date(Date.now() + eco.SPIN_COOLDOWN_SEC * 1000).toISOString();
-    return {
-      user: ach.user,
-      prizeIndex,
-      amount: prize.amount,
-      cooldown: false,
-      duplicate: false,
-      nextSpinAt,
-      progress: {
-        levelUps: [...granted.levelUps, ...ach.levelUps],
-        unlocked: ach.unlocked as unknown[],
-      },
-    };
+      const nextSpinAt = new Date(Date.now() + eco.SPIN_COOLDOWN_SEC * 1000).toISOString();
+      return {
+        user: ach.user,
+        prizeIndex,
+        amount: prize.amount,
+        cooldown: false,
+        duplicate: false,
+        nextSpinAt,
+        progress: {
+          levelUps: [...granted.levelUps, ...ach.levelUps],
+          unlocked: ach.unlocked as unknown[],
+        },
+      };
+    } catch (error) {
+      await svc.from("idempotency").delete().eq("key", idKey).eq("user_id", v.user.id);
+      throw error;
+    }
   });
 
 // --- leaderboard ------------------------------------------------------------

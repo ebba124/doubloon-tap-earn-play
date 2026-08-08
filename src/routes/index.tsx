@@ -530,8 +530,9 @@ function TasksTab({ session }: { session: any }) {
                 <button
                   className="primary-btn"
                   style={{ padding: "6px 12px", opacity: locked ? 0.5 : 1 }}
+                  disabled={mut.isPending}
                   onClick={() => {
-                    if (locked) {
+                    if (locked || mut.isPending) {
                       haptic("medium");
                       getWebApp()?.showAlert?.(
                         "You haven't joined yet. Join the channel, then tap “I've joined — check again”.",
@@ -541,7 +542,6 @@ function TasksTab({ session }: { session: any }) {
                     }
                     mut.mutate(t.id);
                   }}
-                  disabled={mut.isPending}
                 >
                   {locked ? "🔒 Claim" : "Claim"}
                 </button>
@@ -551,7 +551,7 @@ function TasksTab({ session }: { session: any }) {
                 className="primary-btn"
                 style={{ width: "auto", opacity: locked ? 0.5 : 1 }}
                 onClick={() => {
-                  if (locked) {
+                  if (locked || mut.isPending) {
                     haptic("medium");
                     getWebApp()?.showAlert?.("Join all required channels first to unlock rewards.");
                     return;

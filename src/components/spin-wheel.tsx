@@ -73,6 +73,7 @@ export function SpinWheel({ session }: { session: SpinWheelSessionData }) {
 
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [win, setWin] = useState<{ open: boolean; amount: number }>({
     open: false,
     amount: 0,
@@ -116,6 +117,7 @@ export function SpinWheel({ session }: { session: SpinWheelSessionData }) {
   const mut = useMutation({
     mutationFn: () => spinFn({ data: { initData: getInitData(), nonce: makeNonce() } }),
     onSuccess: (r: SpinResult) => {
+      setErrorMessage(null);
       if (r.prizeIndex < 0) {
         setSpinning(false);
         if (tickRef.current) clearInterval(tickRef.current);
@@ -159,14 +161,16 @@ export function SpinWheel({ session }: { session: SpinWheelSessionData }) {
     onError: (e: Error) => {
       setSpinning(false);
       if (tickRef.current) clearInterval(tickRef.current);
+      setErrorMessage(e.message || "Spin could not be processed. Please try again.");
       playError();
-      getWebApp()?.showAlert?.(e.message ?? "Spin failed");
+      getWebApp()?.showAlert?.(e.message || "Spin could not be processed. Please try again.");
       qc.invalidateQueries({ queryKey: ["session"] });
     },
   });
 
   const doSpin = () => {
-    if (spinning || !ready || locked) return;
+    if (spinning || !ready || locked || mut.isPending) return;
+    setErrorMessage(null);
     primeAudio();
     haptic("medium");
     setSpinning(true);
@@ -230,6 +234,12 @@ export function SpinWheel({ session }: { session: SpinWheelSessionData }) {
           />
         </svg>
       </div>
+
+      {errorMessage && (
+        <div className="w-full text-center text-sm text-[var(--danger)]" role="alert">
+          {errorMessage}
+        </div>
+      )}
 
       <button
         className="primary-btn"
