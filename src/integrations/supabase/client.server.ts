@@ -34,12 +34,16 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 
 function createSupabaseAdminClient() {
   const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Supabase projects can expose either the legacy service-role JWT or the
+  // newer secret key. Prefer the configured service role and fall back to the
+  // secret key so server-side reward writes always use an admin credential.
+  const SUPABASE_SERVICE_ROLE_KEY =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     const missing = [
       ...(!SUPABASE_URL ? ["SUPABASE_URL"] : []),
-      ...(!SUPABASE_SERVICE_ROLE_KEY ? ["SUPABASE_SERVICE_ROLE_KEY"] : []),
+      ...(!SUPABASE_SERVICE_ROLE_KEY ? ["SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY"] : []),
     ];
     const message = `Missing Supabase environment variable(s): ${missing.join(", ")}. Connect Supabase in Lovable Cloud.`;
     console.error(`[Supabase] ${message}`);
