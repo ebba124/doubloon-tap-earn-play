@@ -72,6 +72,9 @@
   }
   html,
   body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
     background-color: var(--color-background);
     color: var(--color-foreground);
     background-image:
@@ -135,9 +138,11 @@
     }
   }
   .app-shell {
+    width: 100%;
     max-width: 480px;
     margin-inline: auto;
     min-height: 100vh;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     padding-bottom: 80px;
@@ -195,11 +200,13 @@
   }
   .tabbar {
     position: fixed;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    transform: none;
     bottom: 0;
     width: 100%;
     max-width: 480px;
+    margin-inline: auto;
+    right: 0;
     background: oklch(0.18 0.03 55 / 0.95);
     backdrop-filter: blur(12px);
     display: grid;

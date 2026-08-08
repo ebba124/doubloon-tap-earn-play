@@ -324,6 +324,9 @@ function EarnTab({ session }: { session: any }) {
       if (r.reason === "ok") {
         haptic("medium");
         playClaim();
+        // Update the visible counter immediately from the authoritative payout.
+        // This keeps the claimed DBL visible even before the session refetch completes.
+        setLocalBalance(Number(r.user?.balance ?? session.user.balance));
         qc.setQueryData(["session"], (prev: any) => (prev ? { ...prev, user: r.user } : prev));
         setDailyWin({ open: true, amount: r.claimed });
         // Show the streak popups only after the daily reward card is dismissed.
