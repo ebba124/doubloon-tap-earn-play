@@ -25,13 +25,20 @@ export async function incBalance(userId: number, delta: number) {
     .single();
   if (readError || !data) throw new Error("Could not load your balance. Please try again.");
 
-  const { error: updateError } = await svc
-    .from("users")
-    .update({ balance: Number(data.balance) + delta })
-    .eq("id", userId);
+  const nextBalance = Number(data.balance) + delta;
+  let updateError: { message: string } | null = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const result = await svc.from("users").update({ balance: nextBalance }).eq("id", userId);
+    updateError = result.error;
+    if (!updateError) break;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
   if (updateError) {
-    console.error("[v0] balance increment failed", userId, updateError.message);
-    throw new Error("Could not apply your reward. Please try again.");
+    const { data: verified } = await svc.from("users").select("balance").eq("id", userId).single();
+    if (!verified || Number(verified.balance) !== nextBalance) {
+      console.error("[v0] balance increment failed", userId, updateError.message);
+      throw new Error("Could not apply your reward. Please try again.");
+    }
   }
 }
 
@@ -110,19 +117,44 @@ export async function grantProgress(
     levelUps.push({ level: l, title: prog.levelTitle(l), ...reward });
   }
 
-  const { error: updateError } = await svc
-    .from("users")
-    .update({
-      ...(opts.patch ?? {}),
-      balance: Number(u.balance) + dbl,
-      gems: Number(u.gems ?? 0) + gems,
-      xp,
-      level,
-    })
-    .eq("id", userId);
+  const updatePayload = {
+    ...(opts.patch ?? {}),
+    balance: Number(u.balance) + dbl,
+    gems: Number(u.gems ?? 0) + gems,
+    xp,
+    level,
+  };
+
+  let updateError: { message: string } | null = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const result = await svc.from("users").update(updatePayload).eq("id", userId);
+    updateError = result.error;
+    if (!updateError) break;
+
+    // A Telegram Mini App can briefly lose its connection. Retry once before
+    // reporting a payout failure to the player.
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
   if (updateError) {
-    console.error("[v0] grantProgress balance update failed", userId, updateError.message);
-    throw new Error("Could not apply your reward. Please try again.");
+    // Confirm whether the first request actually committed before failing.
+    const { data: verified } = await svc
+      .from("users")
+      .select("balance, gems, xp, level")
+      .eq("id", userId)
+      .single();
+    const wasApplied =
+      verified &&
+      Number(verified.balance) === updatePayload.balance &&
+      Number(verified.gems) === updatePayload.gems &&
+      Number(verified.xp) === updatePayload.xp;
+    if (!wasApplied) {
+      console.error("[v0] grantProgress balance update failed", {
+        userId,
+        message: updateError.message,
+      });
+      throw new Error("Could not apply your reward. Please try again.");
+    }
   }
 
   const { data: fresh, error: freshError } = await svc
