@@ -292,7 +292,7 @@ export const tap = createServerFn({ method: "POST" })
     const applyTaps = Math.min(data.taps, u.energy, allowedTaps);
     if (applyTaps <= 0) return { user: u, applied: 0, duplicate: false };
 
-    const value = applyTaps * Number(u.tap_value) * Number(u.tap_multiplier_permanent || 1);
+    const value = applyTaps * Number(u.tap_value ?? 1);
 
     const prevTaps = Number(u.total_taps);
     const newTaps = prevTaps + applyTaps;
