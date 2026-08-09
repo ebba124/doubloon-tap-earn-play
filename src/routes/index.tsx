@@ -276,9 +276,22 @@ function EarnTab({ session }: { session: any }) {
       const perTap = Number(session.user.tap_value ?? 1);
       // Server balance is authoritative. Re-add only the taps that queued up
       // while this request was in flight so the counter never drifts.
-      setLocalBalance(serverBalance + pending.current * perTap);
+      const queuedTaps = pending.current;
+      const queuedValue = queuedTaps * perTap;
+      setLocalBalance(serverBalance + queuedValue);
       setLocalEnergy(Number(serverUser?.energy ?? localEnergy));
-      qc.setQueryData(["session"], (prev: any) => (prev ? { ...prev, user: res.user } : prev));
+      qc.setQueryData(["session"], (prev: any) =>
+        prev
+          ? {
+              ...prev,
+              user: {
+                ...res.user,
+                balance: serverBalance + queuedValue,
+                energy: Number(serverUser?.energy ?? localEnergy),
+              },
+            }
+          : prev,
+      );
       pushProgress((res as any).progress);
       // Level ups and achievements change the progression/achievement payload.
       if ((res as any).progress?.levelUps?.length || (res as any).progress?.unlocked?.length) {
@@ -292,13 +305,13 @@ function EarnTab({ session }: { session: any }) {
   };
 
   const handleTap = (e: React.PointerEvent) => {
-    if (localEnergy < session.user.tap_value) return;
+    if (localEnergy < 1) return;
     primeAudio();
     haptic("light");
     playTap();
     const perTap = Number(session.user.tap_value ?? 1);
     setLocalBalance((b) => b + perTap);
-    setLocalEnergy((en) => Math.max(0, en - session.user.tap_value));
+    setLocalEnergy((en) => Math.max(0, en - 1));
     pending.current += 1;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const id = Date.now() + Math.random();
