@@ -273,7 +273,8 @@ function EarnTab({ session }: { session: any }) {
       const res = await tapFn({ data: { initData: getInitData(), taps, nonce: currentNonce } });
       const serverUser = (res as any).user;
       const serverBalance = Number(serverUser?.balance ?? 0);
-      const perTap = Number(session.user.tap_value ?? 1);
+      const perTap =
+        Number(session.user.tap_value ?? 1) * Number(session.user.tap_multiplier_permanent ?? 1);
       // Server balance is authoritative. Re-add only the taps that queued up
       // while this request was in flight so the counter never drifts.
       const queuedTaps = pending.current;
@@ -309,7 +310,8 @@ function EarnTab({ session }: { session: any }) {
     primeAudio();
     haptic("light");
     playTap();
-    const perTap = Number(session.user.tap_value ?? 1);
+    const perTap =
+      Number(session.user.tap_value ?? 1) * Number(session.user.tap_multiplier_permanent ?? 1);
     setLocalBalance((b) => b + perTap);
     setLocalEnergy((en) => Math.max(0, en - 1));
     pending.current += 1;
