@@ -109,7 +109,7 @@ export const getSession = createServerFn({ method: "POST" })
       }
       user = (await svc.from("users").select("*").eq("id", v.user.id).single()).data!;
     } else {
-      await svc
+      const { data: synced, error: syncError } = await svc
         .from("users")
         .update({
           username: v.user.username ?? user.username,
@@ -118,7 +118,14 @@ export const getSession = createServerFn({ method: "POST" })
           photo_url: v.user.photo_url ?? user.photo_url,
           language_code: v.user.language_code ?? user.language_code,
         })
-        .eq("id", v.user.id);
+        .eq("id", v.user.id)
+        .select("*")
+        .single();
+      if (syncError || !synced) {
+        console.error("[v0] Telegram profile sync failed", syncError?.message ?? "profile not returned");
+        throw new Error("Could not sync your Telegram profile. Please try again.");
+      }
+      user = synced;
     }
 
     user = await regenEnergy(v.user.id);
