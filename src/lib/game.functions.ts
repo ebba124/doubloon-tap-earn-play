@@ -346,14 +346,36 @@ export const claimDaily = createServerFn({ method: "POST" })
     const prog = await import("./progression");
     const v = await verifyInitData(data.initData);
     const svc = db();
-    const { data: u, error: userError } = await svc
+    let { data: u, error: userError } = await svc
       .from("users")
       .select("*")
       .eq("id", v.user.id)
       .maybeSingle();
-    if (userError || !u) {
-      console.error("[v0] daily claim user lookup failed", userError?.message ?? "user not found");
+    if (userError) {
+      console.error("[v0] daily claim user lookup failed", userError.message);
       throw new Error("Could not load your game profile. Please try again.");
+    }
+    if (!u) {
+      const { data: created, error: createError } = await svc
+        .from("users")
+        .upsert(
+          {
+            id: v.user.id,
+            username: v.user.username ?? null,
+            first_name: v.user.first_name ?? null,
+            last_name: v.user.last_name ?? null,
+            photo_url: v.user.photo_url ?? null,
+            language_code: v.user.language_code ?? null,
+          },
+          { onConflict: "id" },
+        )
+        .select("*")
+        .single();
+      if (createError || !created) {
+        console.error("[v0] daily claim profile creation failed", createError?.message ?? "no profile");
+        throw new Error("Could not create your game profile. Please try again.");
+      }
+      u = created;
     }
     const now = new Date();
     const last = u.last_daily_claim ? new Date(u.last_daily_claim) : null;
