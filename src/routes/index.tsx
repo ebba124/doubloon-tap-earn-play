@@ -273,8 +273,7 @@ function EarnTab({ session }: { session: any }) {
       const res = await tapFn({ data: { initData: getInitData(), taps, nonce: currentNonce } });
       const serverUser = (res as any).user;
       const serverBalance = Number(serverUser?.balance ?? 0);
-      const perTap =
-        Number(session.user.tap_value) * Number(session.user.tap_multiplier_permanent || 1);
+      const perTap = Number(session.user.tap_value ?? 1);
       // Server balance is authoritative. Re-add only the taps that queued up
       // while this request was in flight so the counter never drifts.
       setLocalBalance(serverBalance + pending.current * perTap);
@@ -286,7 +285,9 @@ function EarnTab({ session }: { session: any }) {
         qc.invalidateQueries({ queryKey: ["session"] });
       }
     } catch (e) {
-      console.error(e);
+      console.error("[v0] tap request failed", e);
+      pending.current += taps;
+      qc.invalidateQueries({ queryKey: ["session"] });
     }
   };
 
@@ -295,8 +296,7 @@ function EarnTab({ session }: { session: any }) {
     primeAudio();
     haptic("light");
     playTap();
-    const perTap =
-      Number(session.user.tap_value) * Number(session.user.tap_multiplier_permanent || 1);
+    const perTap = Number(session.user.tap_value ?? 1);
     setLocalBalance((b) => b + perTap);
     setLocalEnergy((en) => Math.max(0, en - session.user.tap_value));
     pending.current += 1;

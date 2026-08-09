@@ -370,12 +370,13 @@ export const tap = createServerFn({ method: "POST" })
       user: updatedUser,
       levelUps: [],
     };
-    await svc.from("audit_log").insert({
+    const { error: auditError } = await svc.from("audit_log").insert({
       user_id: v.user.id,
       action: "tap",
       delta: value,
       meta: { taps: applyTaps, value },
     });
+    if (auditError) console.error("[v0] tap audit failed after balance save", auditError.message);
 
     // Only walk the achievement table when a tap milestone could have been hit.
     const crossedTapMilestone = prog.TAP_ACHIEVEMENT_THRESHOLDS.some(
