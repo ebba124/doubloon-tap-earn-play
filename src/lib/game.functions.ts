@@ -354,15 +354,26 @@ export const tap = createServerFn({ method: "POST" })
     const prevTaps = Number(u.total_taps);
     const newTaps = prevTaps + applyTaps;
 
-    const granted = await grantProgress(v.user.id, {
-      dbl: value,
-      xp: applyTaps * prog.XP_PER_TAP,
-      patch: {
-        energy: u.energy - applyTaps,
-        total_taps: newTaps,
-        last_energy_update: new Date().toISOString(),
-      },
+    const { data: updatedRows, error: tapError } = await svc.rpc("apply_tap_reward", {
+      p_user_id: v.user.id,
+      p_dbl: value,
+      p_xp: applyTaps * prog.XP_PER_TAP,
+      p_energy: u.energy - applyTaps,
+      p_total_taps: newTaps,
+    });
+    const updatedUser = Array.isArray(updatedRows) ? updatedRows[0] : updatedRows;
+    if (tapError || !updatedUser) {
+      console.error("[v0] atomic tap update failed", tapError?.message ?? "no user returned");
+      throw new Error("Could not save your taps. Please try again.");
+    }
+    const granted = {
+      user: updatedUser,
+      levelUps: [],
+    };
+    await svc.from("audit_log").insert({
+      user_id: v.user.id,
       action: "tap",
+      delta: value,
       meta: { taps: applyTaps, value },
     });
 
