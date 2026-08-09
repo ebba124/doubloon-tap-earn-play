@@ -126,6 +126,56 @@ export const getSession = createServerFn({ method: "POST" })
         throw new Error("Could not sync your Telegram profile. Please try again.");
       }
       user = synced;
+
+      // Process a referral even when the profile was created before the invite
+      // link was opened. This makes referral attribution reliable for returning users.
+      if (!user.referred_by) {
+        let referrerId: number | null = null;
+        if (v.start_param?.startsWith("ref_")) {
+          const candidate = Number(v.start_param.slice(4));
+          if (candidate && candidate !== v.user.id) referrerId = candidate;
+        }
+        if (!referrerId) {
+          const { data: pending } = await svc
+            .from("pending_referrals")
+            .select("referrer_id")
+            .eq("referred_id", v.user.id)
+            .maybeSingle();
+          if (pending) referrerId = Number(pending.referrer_id);
+        }
+        if (referrerId) {
+          const { data: referrer } = await svc.from("users").select("id").eq("id", referrerId).maybeSingle();
+          if (referrer) {
+            const { data: referral, error: referralError } = await svc
+              .from("referrals")
+              .upsert(
+                { referrer_id: referrerId, referred_id: v.user.id },
+                { onConflict: "referrer_id,referred_id", ignoreDuplicates: true },
+              )
+              .select("referred_id")
+              .maybeSingle();
+            if (!referralError && referral) {
+              await svc.from("users").update({ referred_by: referrerId }).eq("id", v.user.id);
+              try {
+                await grantProgress(referrerId, {
+                  dbl: eco.REFERRAL_REWARD_PER_FRIEND,
+                  xp: prog.XP_PER_REFERRAL,
+                  action: "referral_reward",
+                  meta: { referred_id: v.user.id },
+                });
+                await grantProgress(v.user.id, {
+                  dbl: eco.REFERRAL_REWARD_FOR_INVITEE,
+                  action: "referral_welcome",
+                  meta: { referrer_id: referrerId },
+                });
+              } catch (error) {
+                console.error("[v0] referral payout failed", error);
+              }
+            }
+          }
+          await svc.from("pending_referrals").delete().eq("referred_id", v.user.id);
+        }
+      }
     }
 
     user = await regenEnergy(v.user.id);
