@@ -481,21 +481,18 @@ export const claimDaily = createServerFn({ method: "POST" })
     const multiplier = 1;
     const reward = base + comebackBonus;
     if (day % 7 === 0) freezes = Math.min(prog.MAX_STREAK_FREEZES, freezes + 1);
-    const { data: updatedUser, error: updateError } = await svc
-      .from("users")
-      .update({
-        balance: Number(u.balance ?? 0) + reward,
-        streak_day: day,
-        longest_streak: Math.max(Number(u.longest_streak ?? 0), day),
-        streak_freezes: freezes,
-        last_daily_claim: now.toISOString(),
-      })
-      .eq("id", v.user.id)
-      .select("*")
-      .maybeSingle();
+    const { data: updatedRows, error: updateError } = await svc.rpc("claim_daily_reward", {
+      p_user_id: v.user.id,
+      p_reward: reward,
+      p_day: day,
+      p_longest_streak: Math.max(Number(u.longest_streak ?? 0), day),
+      p_freezes: freezes,
+      p_claimed_at: now.toISOString(),
+    });
+    const updatedUser = Array.isArray(updatedRows) ? updatedRows[0] : updatedRows;
 
     if (updateError || !updatedUser) {
-      console.error("[v0] daily reward update failed", updateError?.message ?? "user not updated");
+      console.error("[v0] daily reward RPC failed", updateError?.message ?? "user not returned");
       throw new Error("Daily reward could not be claimed. Please try again.");
     }
 
