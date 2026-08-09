@@ -416,8 +416,8 @@ export const claimDaily = createServerFn({ method: "POST" })
     }
     day = Math.min(day + 1, eco.DAILY_STREAK_REWARDS.length);
     const base = eco.DAILY_STREAK_REWARDS[day - 1];
-    const multiplier = prog.streakMultiplier(day);
-    const reward = Math.floor(base * multiplier) + comebackBonus;
+    const multiplier = 1;
+    const reward = base + comebackBonus;
     if (day % 7 === 0) freezes = Math.min(prog.MAX_STREAK_FREEZES, freezes + 1);
     const { data: updatedUser, error: updateError } = await svc
       .from("users")
