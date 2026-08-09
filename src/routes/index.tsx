@@ -348,7 +348,9 @@ function EarnTab({ session }: { session: any }) {
 
   const canDaily = useMemo(() => {
     if (!session.user.last_daily_claim) return true;
-    const hrs = (Date.now() - new Date(session.user.last_daily_claim).getTime()) / 3.6e6;
+    const claimedAt = new Date(session.user.last_daily_claim).getTime();
+    if (Number.isNaN(claimedAt)) return true;
+    const hrs = (Date.now() - claimedAt) / 3.6e6;
     return hrs >= 20;
   }, [session.user.last_daily_claim]);
 

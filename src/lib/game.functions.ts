@@ -385,7 +385,8 @@ export const claimDaily = createServerFn({ method: "POST" })
       u = created;
     }
     const now = new Date();
-    const last = u.last_daily_claim ? new Date(u.last_daily_claim) : null;
+    const parsedLast = u.last_daily_claim ? new Date(u.last_daily_claim) : null;
+    const last = parsedLast && !Number.isNaN(parsedLast.getTime()) ? parsedLast : null;
     const gapHours = last ? (now.getTime() - last.getTime()) / 3.6e6 : Number.POSITIVE_INFINITY;
     if (last && gapHours < 20) {
       return {
