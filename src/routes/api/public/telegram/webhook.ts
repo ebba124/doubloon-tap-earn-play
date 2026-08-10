@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createHash, timingSafeEqual } from "node:crypto";
 
 // Single source of truth for the mini app URL used by every bot button.
-const MINI_APP_URL = "https://doubloon-tap-earn-play.vercel.app";
+const MINI_APP_URL = process.env.URL ?? "https://heroic-medovik-e6b571.netlify.app";
 
 interface InlineKeyboardButton {
   text: string;
