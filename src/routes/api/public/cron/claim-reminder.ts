@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const WEB_APP_URL = "https://doubloon-tap-earn-play.vercel.app";
+const WEB_APP_URL = process.env.URL ?? "https://heroic-medovik-e6b571.netlify.app";
 
 async function sendClaimReminder(chatId: number | string, token: string) {
   const text = [
