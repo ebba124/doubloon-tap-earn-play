@@ -8,7 +8,7 @@ const initDataSchema = z.object({ initData: z.string().min(1) });
 export const getSession = createServerFn({ method: "POST" })
   .validator((d: { initData: string }) => initDataSchema.parse(d))
   .handler(async ({ data }) => {
-    const { verifyInitData, db, incBalance, regenEnergy, checkRequiredChannels, grantProgress } =
+    const { verifyInitData, db, regenEnergy, checkRequiredChannels, grantProgress } =
       await import("./game.server");
     const eco = await import("./economy.server");
     const prog = await import("./progression");
@@ -93,11 +93,9 @@ export const getSession = createServerFn({ method: "POST" })
               .eq("referrer_id", referrerId);
             if ((count ?? 0) === eco.REFERRAL_MILESTONE_COUNT) {
               await svc.from("users").update({ tap_multiplier_permanent: 2 }).eq("id", referrerId);
-              await incBalance(referrerId, eco.REFERRAL_MILESTONE_BONUS);
-              await svc.from("audit_log").insert({
-                user_id: referrerId,
+              await grantProgress(referrerId, {
+                dbl: eco.REFERRAL_MILESTONE_BONUS,
                 action: "referral_milestone",
-                delta: eco.REFERRAL_MILESTONE_BONUS,
                 meta: { count },
               });
             }
@@ -360,7 +358,16 @@ export const tap = createServerFn({ method: "POST" })
     const prevTaps = Number(u.total_taps);
     const newTaps = prevTaps + applyTaps;
 
-    const { data: updatedRows, error: tapError } = await (svc as any).rpc("apply_tap_reward", {
+    const rpcSvc = svc as typeof svc & {
+      rpc: (
+        fnName: string,
+        args: Record<string, unknown>,
+      ) => Promise<{
+        data: unknown;
+        error: { message?: string } | null;
+      }>;
+    };
+    const { data: updatedRows, error: tapError } = await rpcSvc.rpc("apply_tap_reward", {
       p_user_id: v.user.id,
       p_dbl: value,
       p_xp: applyTaps * prog.XP_PER_TAP,
@@ -388,7 +395,14 @@ export const tap = createServerFn({ method: "POST" })
     const crossedTapMilestone = prog.TAP_ACHIEVEMENT_THRESHOLDS.some(
       (t) => prevTaps < t && newTaps >= t,
     );
-    let unlocked: { id: string; name: string; description: string; icon: string; dbl: number; gems: number }[] = [];
+    let unlocked: {
+      id: string;
+      name: string;
+      description: string;
+      icon: string;
+      dbl: number;
+      gems: number;
+    }[] = [];
     let levelUps = granted.levelUps;
     let fresh = granted.user;
     if (crossedTapMilestone || granted.levelUps.length > 0) {
@@ -421,15 +435,14 @@ export const claimDaily = createServerFn({ method: "POST" })
     const prog = await import("./progression");
     const v = await verifyInitData(data.initData);
     const svc = db();
-    let { data: u, error: userError } = await svc
-      .from("users")
-      .select("*")
-      .eq("id", v.user.id)
-      .maybeSingle();
+    const userLookup = await svc.from("users").select("*").eq("id", v.user.id).maybeSingle();
+    const { data: initialUser, error: userError } = userLookup;
     if (userError) {
       console.error("[v0] daily claim user lookup failed", userError.message);
       throw new Error("Could not load your game profile. Please try again.");
     }
+
+    let u = initialUser;
     if (!u) {
       const { data: created, error: createError } = await svc
         .from("users")
@@ -469,7 +482,17 @@ export const claimDaily = createServerFn({ method: "POST" })
         gems: 0,
         freezeUsed: false,
         comebackBonus: 0,
-        progress: { levelUps: [] as { level: number; title: string; dbl: number; gems: number }[], unlocked: [] as { id: string; name: string; description: string; icon: string; dbl: number; gems: number }[] },
+        progress: {
+          levelUps: [] as { level: number; title: string; dbl: number; gems: number }[],
+          unlocked: [] as {
+            id: string;
+            name: string;
+            description: string;
+            icon: string;
+            dbl: number;
+            gems: number;
+          }[],
+        },
       };
     }
     let day = Number(u.streak_day ?? 0);
@@ -487,22 +510,54 @@ export const claimDaily = createServerFn({ method: "POST" })
     }
     day = Math.min(day + 1, eco.DAILY_STREAK_REWARDS.length);
     const base = eco.DAILY_STREAK_REWARDS[day - 1];
-    const multiplier = 1;
-    const reward = base + comebackBonus;
+    const multiplier = prog.streakMultiplier(day);
+    const reward = Math.floor(base * multiplier) + comebackBonus;
     if (day % 7 === 0) freezes = Math.min(prog.MAX_STREAK_FREEZES, freezes + 1);
-    const { data: updatedRows, error: updateError } = await (svc as any).rpc("claim_daily_reward", {
+    let updatedUser: typeof u | null = null;
+    const longestStreak = Math.max(Number(u.longest_streak ?? 0), day);
+    const rpcSvc = svc as typeof svc & {
+      rpc: (
+        fnName: string,
+        args: Record<string, unknown>,
+      ) => Promise<{
+        data: unknown;
+        error: { message?: string } | null;
+      }>;
+    };
+    const { data: updatedRows, error: updateError } = await rpcSvc.rpc("claim_daily_reward", {
       p_user_id: v.user.id,
       p_reward: reward,
       p_day: day,
-      p_longest_streak: Math.max(Number(u.longest_streak ?? 0), day),
+      p_longest_streak: longestStreak,
       p_freezes: freezes,
       p_claimed_at: now.toISOString(),
     });
-    const updatedUser = Array.isArray(updatedRows) ? updatedRows[0] : updatedRows;
+    updatedUser = Array.isArray(updatedRows) ? updatedRows[0] : updatedRows;
 
     if (updateError || !updatedUser) {
       console.error("[v0] daily reward RPC failed", updateError?.message ?? "user not returned");
-      throw new Error("Daily reward could not be claimed. Please try again.");
+      const { data: fallbackUser, error: fallbackError } = await svc
+        .from("users")
+        .update({
+          balance: Number(u.balance ?? 0) + reward,
+          streak_day: day,
+          longest_streak: longestStreak,
+          streak_freezes: freezes,
+          last_daily_claim: now.toISOString(),
+        })
+        .eq("id", v.user.id)
+        .select("*")
+        .single();
+
+      if (fallbackError || !fallbackUser) {
+        console.error(
+          "[v0] daily reward direct update failed",
+          fallbackError?.message ?? "user not returned",
+        );
+        throw new Error("Daily reward could not be claimed. Please try again.");
+      }
+
+      updatedUser = fallbackUser;
     }
 
     try {
@@ -525,7 +580,17 @@ export const claimDaily = createServerFn({ method: "POST" })
       gems: 0,
       freezeUsed,
       comebackBonus,
-      progress: { levelUps: [] as { level: number; title: string; dbl: number; gems: number }[], unlocked: [] as { id: string; name: string; description: string; icon: string; dbl: number; gems: number }[] },
+      progress: {
+        levelUps: [] as { level: number; title: string; dbl: number; gems: number }[],
+        unlocked: [] as {
+          id: string;
+          name: string;
+          description: string;
+          icon: string;
+          dbl: number;
+          gems: number;
+        }[],
+      },
     };
   });
 
