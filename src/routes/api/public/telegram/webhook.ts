@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createHash, timingSafeEqual } from "node:crypto";
 
 // Single source of truth for the mini app URL used by every bot button.
 const MINI_APP_URL = process.env.URL ?? "https://doubloon-tap-earn-play.vercel.app";
@@ -13,16 +12,6 @@ interface InlineKeyboardButton {
 
 interface ReplyMarkup {
   inline_keyboard: InlineKeyboardButton[][];
-}
-
-function deriveSecret(token: string) {
-  return createHash("sha256").update(`telegram-webhook:${token}`).digest("base64url");
-}
-
-function safeEq(a: string, b: string) {
-  const A = Buffer.from(a);
-  const B = Buffer.from(b);
-  return A.length === B.length && timingSafeEqual(A, B);
 }
 
 function escapeHtml(value: string) {
@@ -118,9 +107,6 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
       POST: async ({ request }) => {
         const token = process.env.TELEGRAM_BOT_TOKEN;
         if (!token) return new Response("bot token missing", { status: 500 });
-        const expected = deriveSecret(token);
-        const provided = request.headers.get("x-telegram-bot-api-secret-token") ?? "";
-        if (!safeEq(provided, expected)) return new Response("unauthorized", { status: 401 });
 
         const update = await request.json().catch(() => null);
         const msg = update?.message ?? update?.edited_message;
