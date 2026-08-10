@@ -19,9 +19,15 @@ export function xpForLevel(level: number): number {
 }
 
 export function levelForXp(xp: number): number {
-  let level = 1;
-  while (level < MAX_LEVEL && xp >= xpForLevel(level + 1)) level++;
-  return level;
+  // Binary search is O(log N) vs the previous O(N) linear scan.
+  let lo = 1,
+    hi = MAX_LEVEL;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (xp >= xpForLevel(mid)) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
 }
 
 /** Progress within the current level, for XP bars. */

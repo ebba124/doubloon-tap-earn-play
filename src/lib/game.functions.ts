@@ -358,38 +358,27 @@ export const tap = createServerFn({ method: "POST" })
     const prevTaps = Number(u.total_taps);
     const newTaps = prevTaps + applyTaps;
 
-    const rpcSvc = svc as typeof svc & {
-      rpc: (
-        fnName: string,
-        args: Record<string, unknown>,
-      ) => Promise<{
-        data: unknown;
-        error: { message?: string } | null;
-      }>;
-    };
-    const { data: updatedRows, error: tapError } = await rpcSvc.rpc("apply_tap_reward", {
-      p_user_id: v.user.id,
-      p_dbl: value,
-      p_xp: applyTaps * prog.XP_PER_TAP,
-      p_energy: u.energy - applyTaps,
-      p_total_taps: newTaps,
-    });
-    const updatedUser = Array.isArray(updatedRows) ? updatedRows[0] : updatedRows;
-    if (tapError || !updatedUser) {
-      console.error("[v0] atomic tap update failed", tapError?.message ?? "no user returned");
+    // Update energy and total_taps directly, then credit balance+XP via
+    // grantProgress (retry loop + audit write included).
+    const { error: energyError } = await svc
+      .from("users")
+      .update({
+        energy: u.energy - applyTaps,
+        total_taps: newTaps,
+        last_energy_update: new Date().toISOString(),
+      })
+      .eq("id", v.user.id);
+    if (energyError) {
+      console.error("[v0] tap energy update failed", energyError.message);
       throw new Error("Could not save your taps. Please try again.");
     }
-    const granted = {
-      user: updatedUser,
-      levelUps: [] as import("./game.server").LevelUp[],
-    };
-    const { error: auditError } = await svc.from("audit_log").insert({
-      user_id: v.user.id,
+
+    const granted = await grantProgress(v.user.id, {
+      dbl: value,
+      xp: applyTaps * prog.XP_PER_TAP,
       action: "tap",
-      delta: value,
       meta: { taps: applyTaps, value },
     });
-    if (auditError) console.error("[v0] tap audit failed after balance save", auditError.message);
 
     // Only walk the achievement table when a tap milestone could have been hit.
     const crossedTapMilestone = prog.TAP_ACHIEVEMENT_THRESHOLDS.some(
@@ -513,66 +502,33 @@ export const claimDaily = createServerFn({ method: "POST" })
     const multiplier = prog.streakMultiplier(day);
     const reward = Math.floor(base * multiplier) + comebackBonus;
     if (day % 7 === 0) freezes = Math.min(prog.MAX_STREAK_FREEZES, freezes + 1);
-    let updatedUser: typeof u | null = null;
     const longestStreak = Math.max(Number(u.longest_streak ?? 0), day);
-    const rpcSvc = svc as typeof svc & {
-      rpc: (
-        fnName: string,
-        args: Record<string, unknown>,
-      ) => Promise<{
-        data: unknown;
-        error: { message?: string } | null;
-      }>;
-    };
-    const { data: updatedRows, error: updateError } = await rpcSvc.rpc("claim_daily_reward", {
-      p_user_id: v.user.id,
-      p_reward: reward,
-      p_day: day,
-      p_longest_streak: longestStreak,
-      p_freezes: freezes,
-      p_claimed_at: now.toISOString(),
+
+    // Write streak fields first, then credit balance via grantProgress (which
+    // has its own retry loop and audit write, so no separate audit insert needed).
+    const { error: streakError } = await svc
+      .from("users")
+      .update({
+        streak_day: day,
+        longest_streak: longestStreak,
+        streak_freezes: freezes,
+        last_daily_claim: now.toISOString(),
+      })
+      .eq("id", v.user.id);
+    if (streakError) {
+      console.error("[v0] daily streak update failed", streakError.message);
+      throw new Error("Daily reward could not be claimed. Please try again.");
+    }
+
+    const granted = await grantProgress(v.user.id, {
+      dbl: reward,
+      xp: prog.XP_PER_DAILY,
+      action: "daily_claim",
+      meta: { day, base, multiplier, freezeUsed, comebackBonus },
     });
-    updatedUser = Array.isArray(updatedRows) ? updatedRows[0] : updatedRows;
-
-    if (updateError || !updatedUser) {
-      console.error("[v0] daily reward RPC failed", updateError?.message ?? "user not returned");
-      const { data: fallbackUser, error: fallbackError } = await svc
-        .from("users")
-        .update({
-          balance: Number(u.balance ?? 0) + reward,
-          streak_day: day,
-          longest_streak: longestStreak,
-          streak_freezes: freezes,
-          last_daily_claim: now.toISOString(),
-        })
-        .eq("id", v.user.id)
-        .select("*")
-        .single();
-
-      if (fallbackError || !fallbackUser) {
-        console.error(
-          "[v0] daily reward direct update failed",
-          fallbackError?.message ?? "user not returned",
-        );
-        throw new Error("Daily reward could not be claimed. Please try again.");
-      }
-
-      updatedUser = fallbackUser;
-    }
-
-    try {
-      await svc.from("audit_log").insert({
-        user_id: v.user.id,
-        action: "daily_claim",
-        delta: reward,
-        meta: { day, base, multiplier, freezeUsed, comebackBonus },
-      });
-    } catch (error) {
-      console.error("[v0] daily claim audit failed", error);
-    }
 
     return {
-      user: updatedUser,
+      user: granted.user,
       claimed: reward,
       reason: "ok" as const,
       day,
@@ -581,7 +537,7 @@ export const claimDaily = createServerFn({ method: "POST" })
       freezeUsed,
       comebackBonus,
       progress: {
-        levelUps: [] as { level: number; title: string; dbl: number; gems: number }[],
+        levelUps: granted.levelUps as { level: number; title: string; dbl: number; gems: number }[],
         unlocked: [] as {
           id: string;
           name: string;

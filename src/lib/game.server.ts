@@ -16,32 +16,6 @@ export function db() {
   return supabaseAdmin;
 }
 
-export async function incBalance(userId: number, delta: number) {
-  const svc = db();
-  const { data, error: readError } = await svc
-    .from("users")
-    .select("balance")
-    .eq("id", userId)
-    .single();
-  if (readError || !data) throw new Error("Could not load your balance. Please try again.");
-
-  const nextBalance = Number(data.balance) + delta;
-  let updateError: { message: string } | null = null;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const result = await svc.from("users").update({ balance: nextBalance }).eq("id", userId);
-    updateError = result.error;
-    if (!updateError) break;
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  if (updateError) {
-    const { data: verified } = await svc.from("users").select("balance").eq("id", userId).single();
-    if (!verified || Number(verified.balance) !== nextBalance) {
-      console.error("[v0] balance increment failed", userId, updateError.message);
-      throw new Error("Could not apply your reward. Please try again.");
-    }
-  }
-}
-
 export async function regenEnergy(userId: number) {
   const svc = db();
   const { data: u } = await svc.from("users").select("*").eq("id", userId).single();

@@ -230,7 +230,9 @@ function EconomySection() {
             <div className="font-semibold">{s.key as string}</div>
             <div className="text-xs text-[var(--muted-foreground)]">{JSON.stringify(s.value)}</div>
           </div>
-          <div className="text-xs text-[var(--muted-foreground)]">by {(s.updated_by as string) ?? "—"}</div>
+          <div className="text-xs text-[var(--muted-foreground)]">
+            by {(s.updated_by as string) ?? "—"}
+          </div>
         </div>
       ))}
     </section>

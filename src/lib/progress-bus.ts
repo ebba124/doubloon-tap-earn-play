@@ -31,7 +31,9 @@ const listeners = new Set<Listener>();
 
 export function subscribeProgress(fn: Listener): () => void {
   listeners.add(fn);
-  return () => { listeners.delete(fn); };
+  return () => {
+    listeners.delete(fn);
+  };
 }
 
 /** Fan out the `progress` block returned by the game server functions. */

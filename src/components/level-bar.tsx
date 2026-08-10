@@ -13,11 +13,7 @@ interface LevelBarSessionData {
   };
 }
 
-function formatNum(n: number) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
-  if (n >= 10_000) return (n / 1000).toFixed(1) + "K";
-  return Math.floor(n).toLocaleString();
-}
+import { formatNum } from "@/lib/utils";
 
 /** Compact level chip + XP bar + gem balance, shown under the header. */
 export function LevelBar({ session }: { session: LevelBarSessionData }) {

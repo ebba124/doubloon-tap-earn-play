@@ -5,6 +5,7 @@ import { spin } from "@/lib/game.functions";
 import { getInitData, getWebApp, haptic, makeNonce } from "@/lib/telegram-webapp";
 import { playSpinTick, playWin, playError, primeAudio } from "@/lib/sound";
 import { WinOverlay } from "./win-overlay";
+import { formatNum } from "@/lib/utils";
 
 interface Prize {
   label: string;
@@ -115,7 +116,8 @@ export function SpinWheel({ session }: { session: SpinWheelSessionData }) {
   );
 
   const mut = useMutation({
-    mutationFn: () => spinFn({ data: { initData: getInitData(), nonce: makeNonce() } }) as Promise<SpinResult>,
+    mutationFn: () =>
+      spinFn({ data: { initData: getInitData(), nonce: makeNonce() } }) as Promise<SpinResult>,
     onSuccess: (r: SpinResult) => {
       setErrorMessage(null);
       if (r.prizeIndex < 0) {

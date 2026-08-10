@@ -1,10 +1,5 @@
 import { useEffect, useMemo } from "react";
-
-function formatNum(n: number) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
-  if (n >= 10_000) return (n / 1000).toFixed(1) + "K";
-  return Math.floor(n).toLocaleString();
-}
+import { formatNum } from "@/lib/utils";
 
 export interface WinOverlayProps {
   open: boolean;
@@ -32,10 +27,7 @@ export function WinOverlay({ open, amount, title = "You won!", onClose }: WinOve
         size: 6 + Math.random() * 8,
         rotate: Math.random() * 360,
       })),
-    // Regenerate the burst each time the overlay opens.
-    [
-      // Only regenerate when opening, not when closing or onClose changes
-    ],
+    [open],
   );
 
   useEffect(() => {

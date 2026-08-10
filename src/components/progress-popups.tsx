@@ -3,11 +3,7 @@ import { subscribeProgress, type ProgressPopup } from "@/lib/progress-bus";
 import { haptic } from "@/lib/telegram-webapp";
 import { playClaim } from "@/lib/sound";
 
-function formatNum(n: number) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
-  if (n >= 10_000) return (n / 1000).toFixed(1) + "K";
-  return Math.floor(n).toLocaleString();
-}
+import { formatNum } from "@/lib/utils";
 
 /**
  * Mounted once per app. Drains the progress bus and shows level-up /

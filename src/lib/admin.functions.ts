@@ -11,11 +11,13 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
   economy_editor: ["economy:edit", "overview:view"],
 };
 
+const _envSuperadmins: number[] = (process.env.ADMIN_TELEGRAM_IDS ?? "")
+  .split(",")
+  .map((s) => Number(s.trim()))
+  .filter(Boolean);
+
 function envSuperadmins(): number[] {
-  return (process.env.ADMIN_TELEGRAM_IDS ?? "")
-    .split(",")
-    .map((s) => Number(s.trim()))
-    .filter(Boolean);
+  return _envSuperadmins;
 }
 
 async function getRolesForUser(telegramId: number): Promise<AdminRole[]> {

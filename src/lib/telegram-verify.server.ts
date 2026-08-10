@@ -35,7 +35,6 @@ export function verifyTelegramInitData(
   params.delete("hash");
 
   const dataCheckString = Array.from(params.entries())
-    .map(([k, v]) => [k, v] as [string, string])
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}=${v}`)
     .join("\n");

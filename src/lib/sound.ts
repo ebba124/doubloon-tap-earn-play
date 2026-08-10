@@ -90,7 +90,7 @@ export function toggleMuted() {
   setMuted(!muted);
 }
 
-export function subscribeMuted(listener: () => void) {
+export function subscribeMuted(listener: () => void): () => void {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);

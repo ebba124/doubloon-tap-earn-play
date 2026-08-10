@@ -12,6 +12,7 @@ import {
   requestWithdraw,
   getLeaderboard,
 } from "@/lib/game.functions";
+import { formatNum } from "@/lib/utils";
 import { getInitData, getWebApp, haptic, makeNonce, openTelegramUrl } from "@/lib/telegram-webapp";
 import { SpinWheel } from "@/components/spin-wheel";
 import { SettingsSheet } from "@/components/settings-sheet";
@@ -43,12 +44,6 @@ export const Route = createFileRoute("/")({
   }),
   component: DoubloonTap,
 });
-
-function formatNum(n: number) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
-  if (n >= 10_000) return (n / 1000).toFixed(1) + "K";
-  return Math.floor(n).toLocaleString();
-}
 
 type Tab = "earn" | "spin" | "tasks" | "friends" | "boosts" | "wallet";
 
