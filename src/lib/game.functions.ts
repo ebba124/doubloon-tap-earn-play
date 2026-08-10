@@ -272,7 +272,6 @@ export const getSession = createServerFn({ method: "POST" })
         unlocked_at: a.unlocked_at,
       })),
       progression: {
-        level: Number(user.level ?? 1),
         title: prog.levelTitle(Number(user.level ?? 1)),
         xp: Number(user.xp ?? 0),
         ...prog.levelProgress(Number(user.xp ?? 0)),
@@ -361,7 +360,7 @@ export const tap = createServerFn({ method: "POST" })
     const prevTaps = Number(u.total_taps);
     const newTaps = prevTaps + applyTaps;
 
-    const { data: updatedRows, error: tapError } = await svc.rpc("apply_tap_reward", {
+    const { data: updatedRows, error: tapError } = await (svc as any).rpc("apply_tap_reward", {
       p_user_id: v.user.id,
       p_dbl: value,
       p_xp: applyTaps * prog.XP_PER_TAP,
@@ -375,7 +374,7 @@ export const tap = createServerFn({ method: "POST" })
     }
     const granted = {
       user: updatedUser,
-      levelUps: [],
+      levelUps: [] as import("./game.server").LevelUp[],
     };
     const { error: auditError } = await svc.from("audit_log").insert({
       user_id: v.user.id,
@@ -389,7 +388,7 @@ export const tap = createServerFn({ method: "POST" })
     const crossedTapMilestone = prog.TAP_ACHIEVEMENT_THRESHOLDS.some(
       (t) => prevTaps < t && newTaps >= t,
     );
-    let unlocked: unknown[] = [];
+    let unlocked: { id: string; name: string; description: string; icon: string; dbl: number; gems: number }[] = [];
     let levelUps = granted.levelUps;
     let fresh = granted.user;
     if (crossedTapMilestone || granted.levelUps.length > 0) {
@@ -470,7 +469,7 @@ export const claimDaily = createServerFn({ method: "POST" })
         gems: 0,
         freezeUsed: false,
         comebackBonus: 0,
-        progress: { levelUps: [], unlocked: [] as unknown[] },
+        progress: { levelUps: [] as { level: number; title: string; dbl: number; gems: number }[], unlocked: [] as { id: string; name: string; description: string; icon: string; dbl: number; gems: number }[] },
       };
     }
     let day = Number(u.streak_day ?? 0);
@@ -491,7 +490,7 @@ export const claimDaily = createServerFn({ method: "POST" })
     const multiplier = 1;
     const reward = base + comebackBonus;
     if (day % 7 === 0) freezes = Math.min(prog.MAX_STREAK_FREEZES, freezes + 1);
-    const { data: updatedRows, error: updateError } = await svc.rpc("claim_daily_reward", {
+    const { data: updatedRows, error: updateError } = await (svc as any).rpc("claim_daily_reward", {
       p_user_id: v.user.id,
       p_reward: reward,
       p_day: day,
@@ -526,7 +525,7 @@ export const claimDaily = createServerFn({ method: "POST" })
       gems: 0,
       freezeUsed,
       comebackBonus,
-      progress: { levelUps: [], unlocked: [] as unknown[] },
+      progress: { levelUps: [] as { level: number; title: string; dbl: number; gems: number }[], unlocked: [] as { id: string; name: string; description: string; icon: string; dbl: number; gems: number }[] },
     };
   });
 
@@ -609,7 +608,7 @@ export const completeTask = createServerFn({ method: "POST" })
         reward: task.reward,
         progress: {
           levelUps: [...granted.levelUps, ...ach.levelUps],
-          unlocked: ach.unlocked as unknown[],
+          unlocked: ach.unlocked,
         },
       };
     } catch (error) {
@@ -823,7 +822,7 @@ export const spin = createServerFn({ method: "POST" })
         nextSpinAt,
         progress: {
           levelUps: [...granted.levelUps, ...ach.levelUps],
-          unlocked: ach.unlocked as unknown[],
+          unlocked: ach.unlocked,
         },
       };
     } catch (error) {

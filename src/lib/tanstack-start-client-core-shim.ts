@@ -8,7 +8,7 @@ import * as realModule from "../../node_modules/@tanstack/start-client-core/dist
 export const createMiddleware = ((options?: unknown, __opts?: unknown) => {
   const resolvedOptions = {
     type: "request",
-    ...(__opts || options),
+    ...(((__opts || options) as Record<string, unknown>) ?? {}),
   } as Record<string, unknown>;
 
   const setValidator = (validator: unknown) => {

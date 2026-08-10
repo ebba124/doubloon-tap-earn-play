@@ -115,7 +115,7 @@ export function SpinWheel({ session }: { session: SpinWheelSessionData }) {
   );
 
   const mut = useMutation({
-    mutationFn: () => spinFn({ data: { initData: getInitData(), nonce: makeNonce() } }),
+    mutationFn: () => spinFn({ data: { initData: getInitData(), nonce: makeNonce() } }) as Promise<SpinResult>,
     onSuccess: (r: SpinResult) => {
       setErrorMessage(null);
       if (r.prizeIndex < 0) {

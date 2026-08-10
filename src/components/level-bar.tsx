@@ -28,7 +28,7 @@ export function LevelBar({ session }: { session: LevelBarSessionData }) {
     xpIntoLevel: 0,
     xpForNext: 0,
   };
-  const gems = Number(session.user.gems ?? 0);
+  const gems = Number(session.user?.gems ?? 0);
   const maxed = p.xpForNext === 0;
 
   return (
@@ -40,15 +40,15 @@ export function LevelBar({ session }: { session: LevelBarSessionData }) {
         <div className="flex items-center justify-between text-xs mb-1">
           <span className="font-semibold truncate">{p.title}</span>
           <span className="text-[var(--muted-foreground)]">
-            {maxed ? "MAX" : `${formatNum(p.xpIntoLevel)} / ${formatNum(p.xpForNext)} XP`}
+            {maxed ? "MAX" : `${formatNum(p.xpIntoLevel ?? 0)} / ${formatNum(p.xpForNext ?? 0)} XP`}
           </span>
         </div>
         <div className="xp-bar">
           <div
             className="xp-bar-fill"
-            style={{ width: `${maxed ? 100 : p.pct}%` }}
+            style={{ width: `${maxed ? 100 : (p.pct ?? 0)}%` }}
             role="progressbar"
-            aria-valuenow={Math.round(maxed ? 100 : p.pct)}
+            aria-valuenow={Math.round(maxed ? 100 : (p.pct ?? 0))}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-label="Experience progress"

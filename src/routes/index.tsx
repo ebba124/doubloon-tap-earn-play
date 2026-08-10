@@ -286,7 +286,7 @@ function EarnTab({ session }: { session: any }) {
           ? {
               ...prev,
               user: {
-                ...res.user,
+                ...(res as any).user,
                 balance: serverBalance + queuedValue,
                 energy: Number(serverUser?.energy ?? localEnergy),
               },
@@ -333,7 +333,7 @@ function EarnTab({ session }: { session: any }) {
 
   const dailyMut = useMutation({
     mutationFn: () => claimFn({ data: { initData: getInitData() } }),
-    onSuccess: (r) => {
+    onSuccess: (r: any) => {
       if (r.reason === "ok") {
         haptic("medium");
         playClaim();

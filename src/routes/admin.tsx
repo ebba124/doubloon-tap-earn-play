@@ -116,17 +116,17 @@ function OverviewSection({ canReview }: { canReview: boolean }) {
       </div>
       <h2 className="font-bold mb-2">Withdrawals</h2>
       {d.withdrawals.map((w: Record<string, unknown>) => (
-        <div key={w.id} className="list-row mb-2 flex-col items-stretch">
+        <div key={w.id as string} className="list-row mb-2 flex-col items-stretch">
           <div className="flex justify-between">
             <div>
               <div className="font-semibold">
-                {w.amount_dbl} DBL → {Number(w.amount_usdt).toFixed(2)} USDT
+                {w.amount_dbl as number} DBL → {Number(w.amount_usdt).toFixed(2)} USDT
               </div>
               <div className="text-xs text-[var(--muted-foreground)]">
-                user {w.user_id} · {w.method} · {w.address}
+                user {w.user_id as string} · {w.method as string} · {w.address as string}
               </div>
             </div>
-            <span className="badge">{w.status}</span>
+            <span className="badge">{w.status as string}</span>
           </div>
           {canReview ? (
             <>
@@ -134,13 +134,13 @@ function OverviewSection({ canReview }: { canReview: boolean }) {
                 <div className="flex gap-2 mt-2">
                   <button
                     className="ghost-btn flex-1"
-                    onClick={() => mut.mutate({ id: w.id, action: "reject" })}
+                    onClick={() => mut.mutate({ id: w.id as number, action: "reject" })}
                   >
                     Reject & refund
                   </button>
                   <button
                     className="primary-btn flex-1"
-                    onClick={() => mut.mutate({ id: w.id, action: "approve" })}
+                    onClick={() => mut.mutate({ id: w.id as number, action: "approve" })}
                   >
                     Approve
                   </button>
@@ -149,7 +149,7 @@ function OverviewSection({ canReview }: { canReview: boolean }) {
               {w.status === "approved" && (
                 <button
                   className="primary-btn mt-2"
-                  onClick={() => mut.mutate({ id: w.id, action: "paid" })}
+                  onClick={() => mut.mutate({ id: w.id as number, action: "paid" })}
                 >
                   Mark paid
                 </button>
@@ -225,12 +225,12 @@ function EconomySection() {
         )}
       </div>
       {(q.data?.settings ?? []).map((s: Record<string, unknown>) => (
-        <div key={s.key} className="list-row mb-2">
+        <div key={s.key as string} className="list-row mb-2">
           <div>
-            <div className="font-semibold">{s.key}</div>
+            <div className="font-semibold">{s.key as string}</div>
             <div className="text-xs text-[var(--muted-foreground)]">{JSON.stringify(s.value)}</div>
           </div>
-          <div className="text-xs text-[var(--muted-foreground)]">by {s.updated_by ?? "—"}</div>
+          <div className="text-xs text-[var(--muted-foreground)]">by {(s.updated_by as string) ?? "—"}</div>
         </div>
       ))}
     </section>
