@@ -48,27 +48,46 @@ function escapeHtml(value: string) {
 async function sendMessage(chatId: number | string, text: string, replyMarkup?: ReplyMarkup) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
-
-  const payload = {
-    chat_id: chatId,
-    text,
-    parse_mode: "HTML",
-    ...(replyMarkup && { reply_markup: replyMarkup }),
-  };
-
   try {
     const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: "HTML",
+        ...(replyMarkup && { reply_markup: replyMarkup }),
+      }),
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.error("[telegram] Message send failed:", error);
-    }
+    if (!response.ok) console.error("[telegram] sendMessage failed:", await response.json());
   } catch (error) {
-    console.error("[telegram] Error sending message:", error);
+    console.error("[telegram] sendMessage error:", error);
+  }
+}
+
+async function sendPhoto(
+  chatId: number | string,
+  photoUrl: string,
+  caption: string,
+  replyMarkup?: ReplyMarkup,
+) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        photo: photoUrl,
+        caption,
+        parse_mode: "HTML",
+        ...(replyMarkup && { reply_markup: replyMarkup }),
+      }),
+    });
+    if (!response.ok) console.error("[telegram] sendPhoto failed:", await response.json());
+  } catch (error) {
+    console.error("[telegram] sendPhoto error:", error);
   }
 }
 
@@ -120,9 +139,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           const { REQUIRED_CHANNELS } = await import("@/lib/economy.server");
           const chatId = msg.chat?.id ?? from.id;
           const webAppUrl = MINI_APP_URL;
-          const name = escapeHtml(
-            from.username ? `@${from.username}` : (from.first_name ?? "there"),
-          );
+          const name = escapeHtml(from.first_name ?? from.username ?? "there");
 
           const command = text.trim().split(/\s+/)[0].toLowerCase();
 
@@ -169,23 +186,14 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             ].join("\n");
 
             const buttons: InlineKeyboardButton[][] = [
-              [
-                {
-                  text: "🎮 Play DoubloonTap",
-                  web_app: { url: webAppUrl },
-                } as InlineKeyboardButton,
-              ],
-              ...REQUIRED_CHANNELS.map((channel) => [
-                {
-                  text: `💪🪙 Join ${channel.label}`,
-                  url: channel.url,
-                } as InlineKeyboardButton,
-              ]),
+              [{ text: "🎮 Play DoubloonTap", web_app: { url: webAppUrl } }],
+              [{ text: "💬 Doubloon Reward", url: "https://t.me/Doubloonreward" }],
+              [{ text: "📢 Doubloon Tap Channel", url: "https://t.me/Doubloontap" }],
+              [{ text: "👥 Doubloon Community", url: "https://t.me/Doublooncommunity" }],
             ];
 
-            await sendMessage(chatId, welcome, {
-              inline_keyboard: buttons,
-            });
+            const photoUrl = `${webAppUrl}/photo_6039616495660240599_x.jpg`;
+            await sendPhoto(chatId, photoUrl, welcome, { inline_keyboard: buttons });
           }
 
           // Handle /help
