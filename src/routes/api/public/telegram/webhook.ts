@@ -15,13 +15,6 @@ interface ReplyMarkup {
   inline_keyboard: InlineKeyboardButton[][];
 }
 
-interface TelegramMessagePayload {
-  chat_id: number | string;
-  text: string;
-  parse_mode: "HTML" | "Markdown" | "MarkdownV2";
-  reply_markup: ReplyMarkup;
-}
-
 function deriveSecret(token: string) {
   return createHash("sha256").update(`telegram-webhook:${token}`).digest("base64url");
 }
@@ -136,7 +129,6 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
 
         if (from?.id && typeof text === "string") {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { REQUIRED_CHANNELS } = await import("@/lib/economy.server");
           const chatId = msg.chat?.id ?? from.id;
           const webAppUrl = MINI_APP_URL;
           const name = escapeHtml(from.first_name ?? from.username ?? "there");
