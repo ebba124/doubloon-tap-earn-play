@@ -123,9 +123,7 @@ export async function grantProgress(
   const updatePayload = {
     ...(opts.patch ?? {}),
     balance: Number(u.balance) + dbl,
-    ...(shouldUpdateProgression
-      ? { gems: Number(u.gems ?? 0) + gems, xp, level }
-      : {}),
+    ...(shouldUpdateProgression ? { gems: Number(u.gems ?? 0) + gems, xp, level } : {}),
   };
 
   let updateError: { message: string } | null = null;
@@ -149,17 +147,12 @@ export async function grantProgress(
 
     // Telegram Mini Apps can briefly lose their connection. Re-read the row
     // before retrying so a committed first request is never reported as failed.
-    const { data: verified } = await svc
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
+    const { data: verified } = await svc.from("users").select("*").eq("id", userId).maybeSingle();
     applied =
       !!verified &&
       Number(verified.balance) === updatePayload.balance &&
       (!shouldUpdateProgression ||
-        (Number(verified.gems) === updatePayload.gems &&
-          Number(verified.xp) === updatePayload.xp));
+        (Number(verified.gems) === updatePayload.gems && Number(verified.xp) === updatePayload.xp));
     if (applied) break;
     await new Promise((resolve) => setTimeout(resolve, 300));
   }

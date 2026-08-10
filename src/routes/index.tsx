@@ -356,7 +356,9 @@ function EarnTab({ session }: { session: any }) {
     },
     onError: (e: any) => {
       haptic("medium");
-      getWebApp()?.showAlert?.(e?.message ?? "Daily reward could not be claimed. Please try again.");
+      getWebApp()?.showAlert?.(
+        e?.message ?? "Daily reward could not be claimed. Please try again.",
+      );
       qc.invalidateQueries({ queryKey: ["session"] });
     },
   });

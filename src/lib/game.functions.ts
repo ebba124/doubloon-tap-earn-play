@@ -122,7 +122,10 @@ export const getSession = createServerFn({ method: "POST" })
         .select("*")
         .single();
       if (syncError || !synced) {
-        console.error("[v0] Telegram profile sync failed", syncError?.message ?? "profile not returned");
+        console.error(
+          "[v0] Telegram profile sync failed",
+          syncError?.message ?? "profile not returned",
+        );
         throw new Error("Could not sync your Telegram profile. Please try again.");
       }
       user = synced;
@@ -144,7 +147,11 @@ export const getSession = createServerFn({ method: "POST" })
           if (pending) referrerId = Number(pending.referrer_id);
         }
         if (referrerId) {
-          const { data: referrer } = await svc.from("users").select("id").eq("id", referrerId).maybeSingle();
+          const { data: referrer } = await svc
+            .from("users")
+            .select("id")
+            .eq("id", referrerId)
+            .maybeSingle();
           if (referrer) {
             const { data: referral, error: referralError } = await svc
               .from("referrals")
@@ -441,7 +448,10 @@ export const claimDaily = createServerFn({ method: "POST" })
         .select("*")
         .single();
       if (createError || !created) {
-        console.error("[v0] daily claim profile creation failed", createError?.message ?? "no profile");
+        console.error(
+          "[v0] daily claim profile creation failed",
+          createError?.message ?? "no profile",
+        );
         throw new Error("Could not create your game profile. Please try again.");
       }
       u = created;
