@@ -1,22 +1,11 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": ".output/public",
+  "outputDirectory": ".vercel/output",
   "framework": null,
   "crons": [
     {
       "path": "/api/public/cron/claim-reminder",
       "schedule": "0 12 * * *"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, max-age=0"
-        }
-      ]
     }
   ]
 }
