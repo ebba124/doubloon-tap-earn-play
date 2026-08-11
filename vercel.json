@@ -1,8 +1,7 @@
 {
   "buildCommand": "npm run build",
-  "env": {
-    "TELEGRAM_BOT_TOKEN": "8875864549:AAHKQ5zKamY_84efrqx8avBd-JEzRmt_22s"
-  },
+  "outputDirectory": ".output/public",
+  "framework": null,
   "crons": [
     {
       "path": "/api/public/cron/claim-reminder",
