@@ -78,16 +78,23 @@ async function sendPhoto(
     return;
   }
   try {
+    const imageRes = await fetch(photoUrl);
+    if (!imageRes.ok) {
+      console.error("[telegram] sendPhoto: failed to fetch image", imageRes.status);
+      return;
+    }
+    const imageBlob = await imageRes.blob();
+
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    form.append("caption", caption);
+    form.append("parse_mode", "HTML");
+    if (replyMarkup) form.append("reply_markup", JSON.stringify(replyMarkup));
+    form.append("photo", imageBlob, "photo.jpg");
+
     const response = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        photo: photoUrl,
-        caption,
-        parse_mode: "HTML",
-        ...(replyMarkup && { reply_markup: replyMarkup }),
-      }),
+      body: form,
     });
     const result = await response.json();
     if (!response.ok) console.error("[telegram] sendPhoto failed:", JSON.stringify(result));
@@ -121,14 +128,12 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
       POST: async ({ request }) => {
         console.log("[telegram] webhook hit");
         const token = process.env.TELEGRAM_BOT_TOKEN;
-        console.log("[telegram] token present:", !!token, "length:", token?.length);
         if (!token) return new Response("bot token missing", { status: 500 });
 
         const update = await request.json().catch((e) => {
           console.error("[telegram] failed to parse body:", e);
           return null;
         });
-        console.log("[telegram] received update:", JSON.stringify(update));
 
         const callbackQuery = update?.callback_query;
         const msg = update?.message ?? update?.edited_message;
@@ -161,15 +166,12 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           return Response.json({ ok: true });
         }
 
-        console.log("[telegram] from.id:", from?.id, "text:", text);
-
         if (from?.id && typeof text === "string") {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const chatId = msg.chat?.id ?? from.id;
           const webAppUrl = MINI_APP_URL;
           const name = escapeHtml(from.first_name ?? from.username ?? "there");
           const command = text.trim().split(/\s+/)[0].toLowerCase();
-          console.log("[telegram] command:", command);
 
           if (command === "/start") {
             await setChatMenuButton(chatId);
@@ -214,8 +216,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             ];
 
             const photoUrl = `${webAppUrl}/photo_6039616495660240599_x.jpg`;
-            console.log("[telegram] sending photo to chatId:", chatId, "photoUrl:", photoUrl);
-            await sendMessage(chatId, welcome, { inline_keyboard: buttons });
+            await sendPhoto(chatId, photoUrl, welcome, { inline_keyboard: buttons });
           }
 
           if (command === "/help") {
