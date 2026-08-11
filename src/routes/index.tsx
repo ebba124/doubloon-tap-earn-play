@@ -51,6 +51,29 @@ function randomUsdAmount() {
   return Number((Math.random() * 90 + 10).toFixed(2));
 }
 
+function AnimatedNumber({ value }: { value: number }) {
+  const [display, setDisplay] = useState(value);
+  const prev = useRef(value);
+  useEffect(() => {
+    const from = prev.current;
+    const to = value;
+    if (from === to) return;
+    const duration = 420;
+    const start = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplay(from + (to - from) * eased);
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else prev.current = to;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{formatNum(Math.round(display))}</>;
+}
+
 function SplashLoader() {
   return (
     <div className="app-shell items-center justify-center flex text-[var(--muted-foreground)]">
@@ -188,41 +211,54 @@ function Header({
     user.username ||
     `Player #${user.id}`;
   return (
-    <div className="flex items-center gap-3 p-4">
-      {user.photo_url ? (
-        <img
-          src={user.photo_url}
-          alt=""
-          className="w-10 h-10 rounded-full border-2 border-[var(--gold)]"
-        />
-      ) : (
-        <div className="w-10 h-10 rounded-full bg-[var(--accent)] grid place-items-center font-bold text-[var(--gold)]">
-          {name.slice(0, 1).toUpperCase()}
+    <div className="flex flex-col gap-2 p-4">
+      <div className="flex items-center gap-3">
+        <div className="relative">
+          {user.photo_url ? (
+            <img
+              src={user.photo_url}
+              alt=""
+              className="w-11 h-11 rounded-full border-2 border-[var(--gold)]"
+            />
+          ) : (
+            <div className="w-11 h-11 rounded-full bg-[var(--accent)] grid place-items-center font-bold text-[var(--gold)]">
+              {name.slice(0, 1).toUpperCase()}
+            </div>
+          )}
+          <span className="level-chip absolute -bottom-1 -right-1 !w-6 !h-6">
+            <span className="level-chip-num !text-[10px]">{user.level ?? 1}</span>
+          </span>
         </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="font-semibold truncate">{name}</div>
-        <div className="text-xs text-[var(--muted-foreground)]">
-          {user.username ? `@${user.username}` : `id ${user.id}`}
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold truncate">{name}</div>
+          <div className="text-xs text-[var(--muted-foreground)]">
+            {user.username ? `@${user.username}` : `id ${user.id}`}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            className="ghost-btn"
+            style={{ padding: 10 }}
+            aria-label="Refresh session"
+            onClick={onRefresh}
+          >
+            ↺
+          </button>
+          <button
+            className="ghost-btn"
+            style={{ padding: 10 }}
+            aria-label="Open settings"
+            onClick={onOpenSettings}
+          >
+            <Settings size={20} />
+          </button>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <button
-          className="ghost-btn"
-          style={{ padding: 10 }}
-          aria-label="Refresh session"
-          onClick={onRefresh}
-        >
-          ↺
-        </button>
-        <button
-          className="ghost-btn"
-          style={{ padding: 10 }}
-          aria-label="Open settings"
-          onClick={onOpenSettings}
-        >
-          <Settings size={20} />
-        </button>
+      <div className="flex items-center gap-2 text-xs">
+        <span className="badge">🪙 {formatNum(Number(user.balance ?? 0))} DBL</span>
+        {user.longest_streak ? (
+          <span className="badge">🔥 {user.longest_streak} day streak</span>
+        ) : null}
       </div>
     </div>
   );
@@ -376,7 +412,7 @@ function EarnTab({ session }: { session: any }) {
       />
       <div className="balance-hero">
         <span>🪙</span>
-        <span>{formatNum(localBalance)}</span>
+        <span><AnimatedNumber value={localBalance} /></span>
         <span className="text-sm text-[var(--muted-foreground)] font-semibold">DBL</span>
       </div>
 
