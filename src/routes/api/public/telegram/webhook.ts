@@ -215,7 +215,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
 
             const photoUrl = `${webAppUrl}/photo_6039616495660240599_x.jpg`;
             console.log("[telegram] sending photo to chatId:", chatId, "photoUrl:", photoUrl);
-            await sendPhoto(chatId, photoUrl, welcome, { inline_keyboard: buttons });
+            await sendMessage(chatId, welcome, { inline_keyboard: buttons });
           }
 
           if (command === "/help") {
