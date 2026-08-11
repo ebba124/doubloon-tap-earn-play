@@ -213,6 +213,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               [{ text: "💬 Doubloon Reward", url: "https://t.me/Doubloonreward" }],
               [{ text: "📢 Doubloon Tap Channel", url: "https://t.me/Doubloontap" }],
               [{ text: "👥 Doubloon Community", url: "https://t.me/Doublooncommunity" }],
+              [{ text: "❓ Help", callback_data: "help" }],
             ];
 
             const photoUrl = `${webAppUrl}/photo_6039616495660240599_x.jpg`;
