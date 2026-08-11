@@ -655,3 +655,128 @@
     }
   }
 }
+
+@layer components {
+  /* --- Advanced polish layer --- */
+
+  /* Ambient glow orbs behind everything */
+  .app-shell::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(500px 400px at 15% 10%, oklch(0.7 0.15 85 / 0.10), transparent 60%),
+      radial-gradient(600px 500px at 90% 30%, oklch(0.6 0.12 60 / 0.10), transparent 65%);
+    animation: ambientDrift 14s ease-in-out infinite alternate;
+  }
+  @keyframes ambientDrift {
+    from { transform: translate(0, 0) scale(1); }
+    to { transform: translate(-2%, 2%) scale(1.05); }
+  }
+
+  /* Glassmorphic depth on cards */
+  .stat-card,
+  .list-row {
+    position: relative;
+    backdrop-filter: blur(8px);
+    box-shadow:
+      0 1px 0 0 oklch(1 0 0 / 0.04) inset,
+      0 8px 20px -12px oklch(0.1 0.03 55 / 0.6);
+    transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  }
+  .stat-card:active,
+  .list-row:active {
+    transform: scale(0.985);
+  }
+
+  /* Header avatar glow */
+  .app-shell img[alt=""] {
+    box-shadow: 0 0 0 2px var(--gold), 0 0 16px -2px oklch(0.82 0.16 85 / 0.5);
+  }
+
+  /* Balance hero shine */
+  .balance-hero {
+    position: relative;
+  }
+  .balance-hero span:first-child {
+    animation: coinSpinIdle 3.5s ease-in-out infinite;
+    display: inline-block;
+  }
+  @keyframes coinSpinIdle {
+    0%, 100% { transform: rotateY(0deg); }
+    50% { transform: rotateY(180deg); }
+  }
+
+  /* Coin button — idle breathing + tap ripple */
+  .coin-btn {
+    position: relative;
+    animation: coinBreathe 2.6s ease-in-out infinite;
+  }
+  @keyframes coinBreathe {
+    0%, 100% { box-shadow:
+        0 0 0 6px oklch(0.3 0.06 60),
+        0 20px 50px -10px oklch(0.1 0.04 55 / 0.7),
+        inset 0 -12px 30px oklch(0.35 0.1 55 / 0.6),
+        inset 0 12px 30px oklch(0.98 0.1 90 / 0.5),
+        0 0 0 0 oklch(0.82 0.16 85 / 0.4); }
+    50% { box-shadow:
+        0 0 0 6px oklch(0.3 0.06 60),
+        0 20px 50px -10px oklch(0.1 0.04 55 / 0.7),
+        inset 0 -12px 30px oklch(0.35 0.1 55 / 0.6),
+        inset 0 12px 30px oklch(0.98 0.1 90 / 0.5),
+        0 0 0 14px oklch(0.82 0.16 85 / 0); }
+  }
+  .coin-btn:active {
+    animation: none;
+    transform: scale(0.96);
+  }
+
+  /* Primary button shine sweep */
+  .primary-btn {
+    position: relative;
+    overflow: hidden;
+  }
+  .primary-btn::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -60%;
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(120deg, transparent, oklch(1 0 0 / 0.35), transparent);
+    transform: skewX(-20deg);
+    transition: left 500ms ease;
+  }
+  .primary-btn:active::after {
+    left: 130%;
+  }
+
+  /* Tab bar — active pill + lift */
+  .tab-btn {
+    overflow: visible;
+  }
+  .tab-btn[data-active="true"] {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px -8px oklch(0.82 0.16 85 / 0.5);
+  }
+  .tab-btn[data-active="true"] .tab-icon {
+    transform: scale(1.12);
+    filter: drop-shadow(0 2px 4px oklch(0.82 0.16 85 / 0.5));
+  }
+  .tab-icon {
+    transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Badge shimmer for "live" style badges */
+  .badge {
+    position: relative;
+  }
+
+  /* Scrollbar polish (webkit) */
+  ::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
+}
