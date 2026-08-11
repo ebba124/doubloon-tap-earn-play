@@ -41,6 +41,14 @@ export function verifyTelegramInitData(
 
   const secretKey = createHmac("sha256", "WebAppData").update(botToken).digest();
   const computed = createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+
+  console.log("DEBUG botToken length:", botToken.length);
+  console.log("DEBUG botToken prefix:", botToken.slice(0, 10));
+  console.log("DEBUG initData raw:", initData);
+  console.log("DEBUG dataCheckString:", dataCheckString);
+  console.log("DEBUG computed hash:", computed);
+  console.log("DEBUG expected hash:", hash);
+
   if (computed !== hash) throw new Error("Invalid initData signature");
 
   const authDate = Number(params.get("auth_date") ?? 0);
