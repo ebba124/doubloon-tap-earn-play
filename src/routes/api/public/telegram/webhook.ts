@@ -47,6 +47,28 @@ async function sendMessage(chatId: number | string, text: string, replyMarkup?: 
   }
 }
 
+async function answerCallbackQuery(callbackQueryId: string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        callback_query_id: callbackQueryId,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error("[telegram] answerCallbackQuery failed:", error);
+    }
+  } catch (error) {
+    console.error("[telegram] answerCallbackQuery error:", error);
+  }
+}
+
 async function sendPhoto(
   chatId: number | string,
   photoUrl: string,
@@ -109,9 +131,38 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         if (!token) return new Response("bot token missing", { status: 500 });
 
         const update = await request.json().catch(() => null);
+        const callbackQuery = update?.callback_query;
         const msg = update?.message ?? update?.edited_message;
         const text: string | undefined = msg?.text;
         const from = msg?.from;
+
+        if (callbackQuery?.id && callbackQuery?.data === "help") {
+          const chatId = callbackQuery.message?.chat?.id ?? callbackQuery.from?.id;
+          if (chatId) {
+            const help = [
+              `<b>📖 DoubloonTap Commands</b>`,
+              ``,
+              `<b>Game Commands:</b>`,
+              `/start - Start the game`,
+              `/profile - View your stats`,
+              `/tap - Tap to earn DBL`,
+              `/tasks - View available tasks`,
+              `/leaderboard - Top 10 players`,
+              ``,
+              `<b>App Commands:</b>`,
+              `/help - Show this help message`,
+              ``,
+              `Tap the button below to play the full game!`,
+            ].join("\n");
+
+            await sendMessage(chatId, help, {
+              inline_keyboard: [[{ text: "🎮 Play DoubloonTap", web_app: { url: MINI_APP_URL } }]],
+            });
+          }
+
+          await answerCallbackQuery(callbackQuery.id);
+          return Response.json({ ok: true });
+        }
 
         if (from?.id && typeof text === "string") {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
