@@ -89,7 +89,9 @@ async function sendPhoto(
         ...(replyMarkup && { reply_markup: replyMarkup }),
       }),
     });
-    if (!response.ok) console.error("[telegram] sendPhoto failed:", await response.json());
+    const result = await response.json();
+    if (!response.ok) console.error("[telegram] sendPhoto failed:", result);
+    else console.log("[telegram] sendPhoto success:", result.ok, result.result?.message_id);
   } catch (error) {
     console.error("[telegram] sendPhoto error:", error);
   }
@@ -131,6 +133,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         if (!token) return new Response("bot token missing", { status: 500 });
 
         const update = await request.json().catch(() => null);
+        console.log("[telegram] received update:", JSON.stringify(update));
         const callbackQuery = update?.callback_query;
         const msg = update?.message ?? update?.edited_message;
         const text: string | undefined = msg?.text;
