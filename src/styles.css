@@ -780,3 +780,79 @@
     background: transparent;
   }
 }
+
+@layer components {
+  /* --- Round 2 polish: floating tabbar, energy shimmer, accented cards --- */
+
+  /* Floating pill tab bar */
+  .tabbar {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: calc(env(safe-area-inset-bottom) + 10px);
+    border-radius: 22px;
+    border: 1px solid oklch(1 0 0 / 0.08);
+    box-shadow:
+      0 16px 40px -12px oklch(0.05 0.02 55 / 0.7),
+      0 1px 0 0 oklch(1 0 0 / 0.05) inset;
+  }
+
+  /* Energy bar shimmer */
+  .h-3.rounded-full.bg-\[var\(--muted\)\].overflow-hidden {
+    position: relative;
+  }
+  .h-3.rounded-full.bg-\[var\(--muted\)\].overflow-hidden > div {
+    position: relative;
+    overflow: hidden;
+  }
+  .h-3.rounded-full.bg-\[var\(--muted\)\].overflow-hidden > div::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 30%,
+      oklch(1 0 0 / 0.35) 50%,
+      transparent 70%
+    );
+    background-size: 200% 100%;
+    animation: energyShimmer 2.2s linear infinite;
+  }
+  @keyframes energyShimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+
+  /* Stat card accent bar on the left, alternating gold/blue for visual rhythm */
+  .stat-card {
+    border-left: 3px solid var(--gold);
+    padding-left: 14px;
+  }
+  .grid.grid-cols-2 .stat-card:nth-child(2) {
+    border-left-color: oklch(0.75 0.14 240);
+  }
+
+  /* Deeper, more premium card shadow overall */
+  .stat-card,
+  .list-row {
+    box-shadow:
+      0 1px 0 0 oklch(1 0 0 / 0.05) inset,
+      0 10px 24px -14px oklch(0.05 0.03 55 / 0.75);
+  }
+
+  /* Balance hero gets a soft glow backdrop */
+  .balance-hero {
+    padding: 4px 0;
+  }
+  .balance-hero::before {
+    content: "";
+    position: absolute;
+    left: -12px;
+    right: -12px;
+    top: -8px;
+    bottom: -8px;
+    z-index: -1;
+    background: radial-gradient(120px 60px at 20% 50%, oklch(0.82 0.16 85 / 0.15), transparent 70%);
+    border-radius: 999px;
+  }
+}
