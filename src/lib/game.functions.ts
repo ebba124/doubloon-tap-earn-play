@@ -238,7 +238,7 @@ export const getSession = createServerFn({ method: "POST" })
       user,
       membership,
       nextSpinAt,
-      tasks: eco.TASKS,
+      tasks: await eco.getTasks(svc),
       tasksDone: (tasksDone ?? []).map((t) => t.task_id),
       boosts: eco.BOOSTS.map((b) => ({
         id: b.id,
@@ -563,7 +563,8 @@ export const completeTask = createServerFn({ method: "POST" })
     const prog = await import("./progression");
     const v = await verifyInitData(data.initData);
     const svc = db();
-    const task = eco.TASKS.find((t) => t.id === data.taskId);
+    const allTasks = await eco.getTasks(svc);
+    const task = allTasks.find((t) => t.id === data.taskId);
     if (!task) throw new Error("Unknown task");
     const gate = await checkRequiredChannels(v.user.id);
     if (!gate.ok)

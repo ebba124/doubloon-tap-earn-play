@@ -202,3 +202,139 @@ export const adminRevokeRole = createServerFn({ method: "POST" })
       .eq("role", data.role);
     return { ok: true };
   });
+
+interface TaskRow {
+  id: string;
+  name: string;
+  description: string;
+  url: string;
+  reward: number;
+  kind: string;
+  chat: string | null;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export const adminListTasks = createServerFn({ method: "POST" })
+  .validator((d: { initData: string }) => z.object({ initData: z.string() }).parse(d))
+  .handler(async ({ data }): Promise<{ tasks: TaskRow[] }> => {
+    await requirePermission(data.initData, "economy:edit");
+    const { db } = await import("./game.server");
+    const svcAny = db() as any;
+    const { data: rows } = await svcAny.from("tasks").select("*").order("sort_order");
+    const tasks = (rows ?? []) as unknown as TaskRow[];
+    return { tasks };
+  });
+
+export const adminCreateTask = createServerFn({ method: "POST" })
+  .validator(
+    (d: {
+      initData: string;
+      id: string;
+      name: string;
+      description: string;
+      url: string;
+      reward: number;
+      kind: "channel" | "external";
+      chat?: string;
+      sortOrder?: number;
+    }) =>
+      z
+        .object({
+          initData: z.string(),
+          id: z
+            .string()
+            .min(1)
+            .max(64)
+            .regex(/^[a-z0-9_]+$/i),
+          name: z.string().min(1).max(200),
+          description: z.string().max(500).default(""),
+          url: z.string().max(500).default(""),
+          reward: z.number().int().nonnegative(),
+          kind: z.enum(["channel", "external"]),
+          chat: z.string().max(100).optional(),
+          sortOrder: z.number().int().default(0),
+        })
+        .parse(d),
+  )
+  .handler(async ({ data }) => {
+    await requirePermission(data.initData, "economy:edit");
+    const { db } = await import("./game.server");
+    const svcAny = db() as any;
+    const { error } = await svcAny.from("tasks").insert({
+      id: data.id,
+      name: data.name,
+      description: data.description,
+      url: data.url,
+      reward: data.reward,
+      kind: data.kind,
+      chat: data.chat ?? null,
+      sort_order: data.sortOrder ?? 0,
+      active: true,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminUpdateTask = createServerFn({ method: "POST" })
+  .validator(
+    (d: {
+      initData: string;
+      id: string;
+      name?: string;
+      description?: string;
+      url?: string;
+      reward?: number;
+      kind?: "channel" | "external";
+      chat?: string | null;
+      active?: boolean;
+      sortOrder?: number;
+    }) =>
+      z
+        .object({
+          initData: z.string(),
+          id: z.string().min(1),
+          name: z.string().min(1).max(200).optional(),
+          description: z.string().max(500).optional(),
+          url: z.string().max(500).optional(),
+          reward: z.number().int().nonnegative().optional(),
+          kind: z.enum(["channel", "external"]).optional(),
+          chat: z.string().max(100).nullable().optional(),
+          active: z.boolean().optional(),
+          sortOrder: z.number().int().optional(),
+        })
+        .parse(d),
+  )
+  .handler(async ({ data }) => {
+    await requirePermission(data.initData, "economy:edit");
+    const { db } = await import("./game.server");
+    const svc = db();
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (data.name !== undefined) patch.name = data.name;
+    if (data.description !== undefined) patch.description = data.description;
+    if (data.url !== undefined) patch.url = data.url;
+    if (data.reward !== undefined) patch.reward = data.reward;
+    if (data.kind !== undefined) patch.kind = data.kind;
+    if (data.chat !== undefined) patch.chat = data.chat;
+    if (data.active !== undefined) patch.active = data.active;
+    if (data.sortOrder !== undefined) patch.sort_order = data.sortOrder;
+    const svcAny = svc as any;
+    const { error } = await svcAny.from("tasks").update(patch).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminDeleteTask = createServerFn({ method: "POST" })
+  .validator((d: { initData: string; id: string }) =>
+    z.object({ initData: z.string(), id: z.string().min(1) }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    await requirePermission(data.initData, "economy:edit");
+    const { db } = await import("./game.server");
+    const svcAny = db() as any;
+    const { error } = await svcAny.from("tasks").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

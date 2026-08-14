@@ -10,6 +10,10 @@ import {
   adminReviewWithdrawal,
   adminRevokeRole,
   adminSetEconomy,
+  adminListTasks,
+  adminCreateTask,
+  adminUpdateTask,
+  adminDeleteTask,
 } from "@/lib/admin.functions";
 import { getInitData, getWebApp } from "@/lib/telegram-webapp";
 import { useEffect, useMemo, useState } from "react";
@@ -81,6 +85,7 @@ function AdminPage() {
         <OverviewSection canReview={perms.includes("withdrawals:review")} />
       )}
       {perms.includes("economy:edit") && <EconomySection />}
+      {perms.includes("economy:edit") && <TasksSection />}
       {perms.includes("roles:manage") && <RolesSection />}
     </div>
   );
@@ -321,6 +326,175 @@ function RolesSection() {
                 {r} ✕
               </button>
             ))}
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function TasksSection() {
+  const listFn = useServerFn(adminListTasks);
+  const createFn = useServerFn(adminCreateTask);
+  const updateFn = useServerFn(adminUpdateTask);
+  const deleteFn = useServerFn(adminDeleteTask);
+
+  const q = useQuery({
+    queryKey: ["admin", "tasks"],
+    queryFn: () => listFn({ data: { initData: getInitData() } }),
+  });
+
+  const [form, setForm] = useState({
+    id: "",
+    name: "",
+    description: "",
+    url: "",
+    reward: 1000,
+    kind: "channel" as "channel" | "external",
+    chat: "",
+    sortOrder: 0,
+  });
+
+  const create = useMutation({
+    mutationFn: () =>
+      createFn({
+        data: {
+          initData: getInitData(),
+          id: form.id,
+          name: form.name,
+          description: form.description,
+          url: form.url,
+          reward: Number(form.reward),
+          kind: form.kind,
+          chat: form.chat || undefined,
+          sortOrder: Number(form.sortOrder),
+        },
+      }),
+    onSuccess: () => {
+      setForm({ id: "", name: "", description: "", url: "", reward: 1000, kind: "channel", chat: "", sortOrder: 0 });
+      q.refetch();
+    },
+  });
+
+  const toggleActive = useMutation({
+    mutationFn: (v: { id: string; active: boolean }) =>
+      updateFn({ data: { initData: getInitData(), id: v.id, active: v.active } }),
+    onSuccess: () => q.refetch(),
+  });
+
+  const del = useMutation({
+    mutationFn: (id: string) => deleteFn({ data: { initData: getInitData(), id } }),
+    onSuccess: () => q.refetch(),
+  });
+
+  return (
+    <section className="mb-6">
+      <h2 className="font-bold mb-2">Tasks</h2>
+
+      <div className="list-row flex-col items-stretch mb-3 gap-2">
+        <input
+          className="ghost-btn text-left"
+          placeholder="id (e.g. join_extra_channel)"
+          value={form.id}
+          onChange={(e) => setForm((f) => ({ ...f, id: e.target.value.replace(/[^a-z0-9_]/gi, "") }))}
+        />
+        <input
+          className="ghost-btn text-left"
+          placeholder="Task name"
+          value={form.name}
+          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+        />
+        <input
+          className="ghost-btn text-left"
+          placeholder="Description"
+          value={form.description}
+          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+        />
+        <input
+          className="ghost-btn text-left"
+          placeholder="URL (channel link, or blank for external)"
+          value={form.url}
+          onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+        />
+        <div className="flex gap-2">
+          <input
+            className="ghost-btn text-left flex-1"
+            type="number"
+            placeholder="Reward (DBL)"
+            value={form.reward}
+            onChange={(e) => setForm((f) => ({ ...f, reward: Number(e.target.value) }))}
+          />
+          <select
+            className="ghost-btn text-left flex-1"
+            value={form.kind}
+            onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as "channel" | "external" }))}
+          >
+            <option value="channel">channel</option>
+            <option value="external">external</option>
+          </select>
+        </div>
+        {form.kind === "channel" && (
+          <input
+            className="ghost-btn text-left"
+            placeholder="Chat @username (for membership check)"
+            value={form.chat}
+            onChange={(e) => setForm((f) => ({ ...f, chat: e.target.value }))}
+          />
+        )}
+        <input
+          className="ghost-btn text-left"
+          type="number"
+          placeholder="Sort order"
+          value={form.sortOrder}
+          onChange={(e) => setForm((f) => ({ ...f, sortOrder: Number(e.target.value) }))}
+        />
+        <button
+          className="primary-btn mt-1"
+          disabled={!form.id || !form.name || create.isPending}
+          onClick={() => create.mutate()}
+        >
+          Add task
+        </button>
+        {create.error && (
+          <div className="text-xs text-[var(--destructive)] mt-1">
+            {(create.error as Error).message}
+          </div>
+        )}
+      </div>
+
+      {(q.data?.tasks ?? []).map((t: any) => (
+        <div key={t.id as string} className="list-row mb-2 flex-col items-stretch">
+          <div className="flex justify-between">
+            <div>
+              <div className="font-semibold">
+                {t.name as string} <span className="text-xs text-[var(--muted-foreground)]">({t.id as string})</span>
+              </div>
+              <div className="text-xs text-[var(--muted-foreground)]">{t.description as string}</div>
+              <div className="text-sm text-[var(--gold)] font-bold mt-1">
+                {t.reward as number} DBL · {t.kind as string}
+                {t.chat ? ` · ${t.chat as string}` : ""}
+              </div>
+            </div>
+            <span className="badge">{t.active ? "active" : "disabled"}</span>
+          </div>
+          <div className="flex gap-2 mt-2">
+            <button
+              className="ghost-btn flex-1"
+              onClick={() => toggleActive.mutate({ id: t.id as string, active: !t.active })}
+            >
+              {t.active ? "Disable" : "Enable"}
+            </button>
+            <button
+              className="ghost-btn flex-1"
+              style={{ color: "var(--destructive)" }}
+              onClick={() => {
+                if (confirm(`Delete task "${t.name}"? This cannot be undone.`)) {
+                  del.mutate(t.id as string);
+                }
+              }}
+            >
+              Delete
+            </button>
           </div>
         </div>
       ))}

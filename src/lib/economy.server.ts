@@ -111,43 +111,37 @@ export interface TaskDef {
   chat?: string;
 }
 
-export const TASKS: TaskDef[] = [
-  {
-    id: "join_community",
-    name: "Join Doubloon Community",
-    description: "Join our official Telegram community.",
-    url: "https://t.me/Doublooncommunity",
-    reward: 5_000,
-    kind: "channel",
-    chat: "@Doublooncommunity",
-  },
-  {
-    id: "join_channel",
-    name: "Join Doubloon Tap Channel",
-    description: "Follow the announcements channel.",
-    url: "https://t.me/Doubloontap",
-    reward: 5_000,
-    kind: "channel",
-    chat: "@Doubloontap",
-  },
-  {
-    id: "join_rewards",
-    name: "Join Doubloon Rewards",
-    description: "Join the rewards channel for drops and bonuses.",
-    url: "https://t.me/Doubloonreward",
-    reward: 5_000,
-    kind: "channel",
-    chat: "@Doubloonreward",
-  },
-  {
-    id: "invite_1",
-    name: "Invite your first friend",
-    description: "Bring one friend to Doubloon Tap.",
-    url: "",
-    reward: 2_500,
-    kind: "external",
-  },
-];
+let _tasksCache: { data: TaskDef[]; at: number } | null = null;
+const TASKS_CACHE_TTL_MS = 15_000;
+
+/** Tasks now live in the `tasks` table (admin-editable). Short in-memory cache
+ * avoids hitting the DB on every session load while keeping admin edits fresh
+ * within ~15s. */
+export async function getTasks(svc: any): Promise<TaskDef[]> {
+  if (_tasksCache && Date.now() - _tasksCache.at < TASKS_CACHE_TTL_MS) {
+    return _tasksCache.data;
+  }
+  const { data, error } = await svc
+    .from("tasks" as any)
+    .select("*")
+    .eq("active", true)
+    .order("sort_order", { ascending: true });
+  if (error) {
+    console.error("[economy] failed to load tasks from db", error.message);
+    return _tasksCache?.data ?? [];
+  }
+  const tasks: TaskDef[] = (data ?? []).map((row: any) => ({
+    id: row.id,
+    name: row.name,
+    description: row.description ?? "",
+    url: row.url ?? "",
+    reward: Number(row.reward),
+    kind: row.kind,
+    chat: row.chat ?? undefined,
+  }));
+  _tasksCache = { data: tasks, at: Date.now() };
+  return tasks;
+}
 
 // Referral milestone: 50 invited friends -> +25,000 DBL and permanent 2x tap.
 export const REFERRAL_MILESTONE_COUNT = 50;
