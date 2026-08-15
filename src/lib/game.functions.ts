@@ -187,7 +187,7 @@ export const getSession = createServerFn({ method: "POST" })
 
     const { data: tasksDone } = await svc
       .from("tasks_done")
-      .select("task_id")
+      .select("task_id, completed_at")
       .eq("user_id", v.user.id);
 
     const { data: myRefs } = await svc
@@ -240,6 +240,7 @@ export const getSession = createServerFn({ method: "POST" })
       nextSpinAt,
       tasks: await eco.getTasks(svc),
       tasksDone: (tasksDone ?? []).map((t) => t.task_id),
+      tasksDoneAt: Object.fromEntries((tasksDone ?? []).map((t) => [t.task_id, t.completed_at])),
       boosts: eco.BOOSTS.map((b) => ({
         id: b.id,
         name: b.name,
@@ -553,8 +554,14 @@ export const claimDaily = createServerFn({ method: "POST" })
 // --- completeTask -----------------------------------------------------------
 
 export const completeTask = createServerFn({ method: "POST" })
-  .validator((d: { initData: string; taskId: string }) =>
-    z.object({ initData: z.string().min(1), taskId: z.string() }).parse(d),
+  .validator((d: { initData: string; taskId: string; startedAt?: number }) =>
+    z
+      .object({
+        initData: z.string().min(1),
+        taskId: z.string(),
+        startedAt: z.number().optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     const { verifyInitData, db, checkRequiredChannels, grantProgress, checkAchievements } =
@@ -562,7 +569,7 @@ export const completeTask = createServerFn({ method: "POST" })
     const eco = await import("./economy.server");
     const prog = await import("./progression");
     const v = await verifyInitData(data.initData);
-    const svc = db();
+    const svc = db() as any;
     const allTasks = await eco.getTasks(svc);
     const task = allTasks.find((t) => t.id === data.taskId);
     if (!task) throw new Error("Unknown task");
@@ -596,17 +603,61 @@ export const completeTask = createServerFn({ method: "POST" })
       )
         throw new Error("Join the channel first, then claim.");
     }
-    const { data: completed, error: dupErr } = await svc
+    if (task.kind === "referral_tier") {
+      const threshold = task.referralThreshold ?? 0;
+      const { count } = await svc
+        .from("referrals")
+        .select("*", { count: "exact", head: true })
+        .eq("referrer_id", v.user.id);
+      if ((count ?? 0) < threshold)
+        throw new Error(`Invite ${threshold} friends to unlock this reward.`);
+    }
+    if (task.kind === "visit" || task.kind === "video") {
+      const seconds = task.visitSeconds ?? 15;
+      if (!data.startedAt) throw new Error("Please open the link first, then come back to claim.");
+      const elapsedMs = Date.now() - data.startedAt;
+      if (elapsedMs < seconds * 1000)
+        throw new Error(`Please wait ${seconds}s after opening the link before claiming.`);
+    }
+
+    const { data: existing } = await svc
       .from("tasks_done")
-      .insert({ user_id: v.user.id, task_id: task.id })
-      .select("task_id")
-      .single();
-    if (dupErr || !completed)
-      throw new Error(
-        dupErr?.code === "23505"
-          ? "Task already claimed"
-          : "Could not reserve this task. Please try again.",
-      );
+      .select("completed_at")
+      .eq("user_id", v.user.id)
+      .eq("task_id", task.id)
+      .maybeSingle();
+
+    let previousCompletedAt: string | null = null;
+    if (existing) {
+      if (!task.repeatable) throw new Error("Task already claimed");
+      const cooldownH = task.cooldownHours ?? 24;
+      const last = new Date(existing.completed_at).getTime();
+      const readyAt = last + cooldownH * 3_600_000;
+      if (Date.now() < readyAt) {
+        const mins = Math.ceil((readyAt - Date.now()) / 60_000);
+        throw new Error(`Come back in ${mins} min for this task.`);
+      }
+      previousCompletedAt = existing.completed_at;
+      const { error: upsertErr } = await svc
+        .from("tasks_done")
+        .update({ completed_at: new Date().toISOString() })
+        .eq("user_id", v.user.id)
+        .eq("task_id", task.id);
+      if (upsertErr) throw new Error("Could not reserve this task. Please try again.");
+    } else {
+      const { data: completed, error: dupErr } = await svc
+        .from("tasks_done")
+        .insert({ user_id: v.user.id, task_id: task.id })
+        .select("task_id")
+        .single();
+      if (dupErr || !completed)
+        throw new Error(
+          dupErr?.code === "23505"
+            ? "Task already claimed"
+            : "Could not reserve this task. Please try again.",
+        );
+    }
+
     try {
       const granted = await grantProgress(v.user.id, {
         dbl: task.reward,
@@ -634,7 +685,15 @@ export const completeTask = createServerFn({ method: "POST" })
         },
       };
     } catch (error) {
-      await svc.from("tasks_done").delete().eq("user_id", v.user.id).eq("task_id", task.id);
+      if (previousCompletedAt) {
+        await svc
+          .from("tasks_done")
+          .update({ completed_at: previousCompletedAt })
+          .eq("user_id", v.user.id)
+          .eq("task_id", task.id);
+      } else {
+        await svc.from("tasks_done").delete().eq("user_id", v.user.id).eq("task_id", task.id);
+      }
       throw error;
     }
   });

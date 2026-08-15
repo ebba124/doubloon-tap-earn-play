@@ -507,13 +507,20 @@ function ChannelGate({ session }: { session: any }) {
 function TasksTab({ session }: { session: any }) {
   const qc = useQueryClient();
   const completeFn = useServerFn(completeTask);
+  const [startedAt, setStartedAt] = useState<Record<string, number>>({});
+  const [, forceTick] = useState(0);
+
+  useEffect(() => {
+    const i = setInterval(() => forceTick((n) => n + 1), 1000);
+    return () => clearInterval(i);
+  }, []);
+
   const mut = useMutation({
-    mutationFn: (taskId: string) => completeFn({ data: { initData: getInitData(), taskId } }),
+    mutationFn: (taskId: string) =>
+      completeFn({ data: { initData: getInitData(), taskId, startedAt: startedAt[taskId] } }),
     onSuccess: (r: any) => {
       haptic("medium");
       playClaim();
-      // Sync the authoritative balance immediately so the reward shows without
-      // waiting for a refetch, then push any level up / achievement popups.
       qc.setQueryData(["session"], (prev: any) =>
         prev
           ? {
@@ -522,6 +529,7 @@ function TasksTab({ session }: { session: any }) {
               tasksDone: prev.tasksDone.includes(r.taskId ?? "")
                 ? prev.tasksDone
                 : [...prev.tasksDone, r.taskId].filter(Boolean),
+              tasksDoneAt: { ...prev.tasksDoneAt, [r.taskId]: new Date().toISOString() },
             }
           : prev,
       );
@@ -540,76 +548,154 @@ function TasksTab({ session }: { session: any }) {
   const joinedChat = (chat?: string) =>
     !chat || channels.find((c) => c.chat === chat)?.joined === true;
   const allJoined = session.membership?.ok !== false;
+  const tasksDoneAt: Record<string, string> = session.tasksDoneAt ?? {};
 
   return (
     <div className="px-4 flex flex-col gap-3">
       <h2 className="text-xl font-bold">Tasks</h2>
       <ChannelGate session={session} />
       {session.tasks.map((t: any) => {
-        const done = session.tasksDone.includes(t.id);
+        const wasDone = session.tasksDone.includes(t.id);
         const joined = joinedChat(t.chat);
         const locked = !allJoined || !joined;
+
+        let cooldownRemainingMs = 0;
+        if (wasDone && t.repeatable && tasksDoneAt[t.id]) {
+          const last = new Date(tasksDoneAt[t.id]).getTime();
+          const readyAt = last + (t.cooldownHours ?? 24) * 3_600_000;
+          cooldownRemainingMs = Math.max(0, readyAt - Date.now());
+        }
+        const done = wasDone && !(t.repeatable && cooldownRemainingMs === 0);
+
+        const isTimed = t.kind === "visit" || t.kind === "video";
+        const start = startedAt[t.id];
+        const waitSeconds = t.visitSeconds ?? 15;
+        const elapsedMs = start ? Date.now() - start : 0;
+        const remainingSec = isTimed && start ? Math.max(0, Math.ceil((waitSeconds * 1000 - elapsedMs) / 1000)) : waitSeconds;
+        const timerReady = isTimed && start && elapsedMs >= waitSeconds * 1000;
+
         return (
-          <div key={t.id} className="list-row">
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold">{t.name}</div>
-              <div className="text-xs text-[var(--muted-foreground)]">{t.description}</div>
-              <div className="text-sm text-[var(--gold)] font-bold mt-1">
-                +{formatNum(t.reward)} DBL
-              </div>
-              {!done && locked && (
-                <div className="text-xs mt-1" style={{ color: "#ff6b6b" }}>
-                  🔒 Not joined yet — you must join {t.chat ?? "all required channels"} to claim
-                  this reward.
+          <div key={t.id} className="list-row flex-col items-stretch">
+            <div className="flex justify-between gap-3">
+              {t.kind === "video" && t.thumbnailUrl && (
+                <img
+                  src={t.thumbnailUrl}
+                  alt=""
+                  className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold">{t.name}</div>
+                <div className="text-xs text-[var(--muted-foreground)]">{t.description}</div>
+                <div className="text-sm text-[var(--gold)] font-bold mt-1">
+                  +{formatNum(t.reward)} DBL
+                  {t.repeatable && (
+                    <span className="text-xs text-[var(--muted-foreground)] font-normal">
+                      {" "}
+                      · every {t.cooldownHours ?? 24}h
+                    </span>
+                  )}
                 </div>
-              )}
-              {!done && !locked && t.kind === "channel" && (
-                <div className="text-xs mt-1 text-[var(--gold)]">✓ Joined — ready to claim</div>
-              )}
+                {!done && locked && (
+                  <div className="text-xs mt-1" style={{ color: "#ff6b6b" }}>
+                    🔒 Not joined yet — you must join {t.chat ?? "all required channels"} to claim
+                    this reward.
+                  </div>
+                )}
+                {!done && !locked && t.kind === "channel" && (
+                  <div className="text-xs mt-1 text-[var(--gold)]">✓ Joined — ready to claim</div>
+                )}
+                {!done && !locked && isTimed && start && !timerReady && (
+                  <div className="text-xs mt-1 text-[var(--gold)]">
+                    ⏳ Wait {remainingSec}s, then come back to claim
+                  </div>
+                )}
+                {done && t.repeatable && cooldownRemainingMs > 0 && (
+                  <div className="text-xs mt-1 text-[var(--muted-foreground)]">
+                    ⏱ Next in {Math.ceil(cooldownRemainingMs / 3_600_000)}h
+                  </div>
+                )}
+              </div>
             </div>
-            {done ? (
-              <span className="badge">✓ Done</span>
-            ) : t.kind === "channel" ? (
-              <div className="flex flex-col gap-2">
-                <button className="ghost-btn" onClick={() => openTelegramUrl(t.url)}>
-                  Join
-                </button>
+            <div className="mt-2">
+              {done ? (
+                <span className="badge">✓ Done</span>
+              ) : t.kind === "channel" ? (
+                <div className="flex gap-2">
+                  <button className="ghost-btn flex-1" onClick={() => openTelegramUrl(t.url)}>
+                    Join
+                  </button>
+                  <button
+                    className="primary-btn flex-1"
+                    style={{ padding: "6px 12px", opacity: locked ? 0.5 : 1 }}
+                    disabled={mut.isPending}
+                    onClick={() => {
+                      if (locked || mut.isPending) {
+                        haptic("medium");
+                        getWebApp()?.showAlert?.(
+                          "You haven't joined yet. Join the channel, then tap “I've joined — check again”.",
+                        );
+                        qc.invalidateQueries({ queryKey: ["session"] });
+                        return;
+                      }
+                      mut.mutate(t.id);
+                    }}
+                  >
+                    {locked ? "🔒 Claim" : "Claim"}
+                  </button>
+                </div>
+              ) : isTimed ? (
+                <div className="flex gap-2">
+                  <button
+                    className="ghost-btn flex-1"
+                    onClick={() => {
+                      if (t.url) openTelegramUrl(t.url);
+                      setStartedAt((s) => ({ ...s, [t.id]: Date.now() }));
+                    }}
+                  >
+                    {start ? "Open again" : "Open link"}
+                  </button>
+                  <button
+                    className="primary-btn flex-1"
+                    style={{ opacity: !timerReady || locked ? 0.5 : 1 }}
+                    disabled={mut.isPending}
+                    onClick={() => {
+                      if (locked) {
+                        getWebApp()?.showAlert?.("Join all required channels first to unlock rewards.");
+                        return;
+                      }
+                      if (!start) {
+                        getWebApp()?.showAlert?.("Tap “Open link” first, then wait before claiming.");
+                        return;
+                      }
+                      if (!timerReady) {
+                        getWebApp()?.showAlert?.(`Please wait ${remainingSec}s more before claiming.`);
+                        return;
+                      }
+                      mut.mutate(t.id);
+                    }}
+                  >
+                    {timerReady ? "Claim" : `Wait ${remainingSec}s`}
+                  </button>
+                </div>
+              ) : (
                 <button
                   className="primary-btn"
-                  style={{ padding: "6px 12px", opacity: locked ? 0.5 : 1 }}
-                  disabled={mut.isPending}
+                  style={{ width: "auto", opacity: locked ? 0.5 : 1 }}
                   onClick={() => {
                     if (locked || mut.isPending) {
                       haptic("medium");
-                      getWebApp()?.showAlert?.(
-                        "You haven't joined yet. Join the channel, then tap “I've joined — check again”.",
-                      );
-                      qc.invalidateQueries({ queryKey: ["session"] });
+                      getWebApp()?.showAlert?.("Join all required channels first to unlock rewards.");
                       return;
                     }
                     mut.mutate(t.id);
                   }}
+                  disabled={mut.isPending}
                 >
                   {locked ? "🔒 Claim" : "Claim"}
                 </button>
-              </div>
-            ) : (
-              <button
-                className="primary-btn"
-                style={{ width: "auto", opacity: locked ? 0.5 : 1 }}
-                onClick={() => {
-                  if (locked || mut.isPending) {
-                    haptic("medium");
-                    getWebApp()?.showAlert?.("Join all required channels first to unlock rewards.");
-                    return;
-                  }
-                  mut.mutate(t.id);
-                }}
-                disabled={mut.isPending}
-              >
-                {locked ? "🔒 Claim" : "Claim"}
-              </button>
-            )}
+              )}
+            </div>
           </div>
         );
       })}

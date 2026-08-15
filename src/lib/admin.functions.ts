@@ -237,9 +237,14 @@ export const adminCreateTask = createServerFn({ method: "POST" })
       description: string;
       url: string;
       reward: number;
-      kind: "channel" | "external";
+      kind: "channel" | "external" | "visit" | "video" | "referral_tier";
       chat?: string;
       sortOrder?: number;
+      visitSeconds?: number;
+      thumbnailUrl?: string;
+      referralThreshold?: number;
+      repeatable?: boolean;
+      cooldownHours?: number;
     }) =>
       z
         .object({
@@ -253,9 +258,14 @@ export const adminCreateTask = createServerFn({ method: "POST" })
           description: z.string().max(500).default(""),
           url: z.string().max(500).default(""),
           reward: z.number().int().nonnegative(),
-          kind: z.enum(["channel", "external"]),
+          kind: z.enum(["channel", "external", "visit", "video", "referral_tier"]),
           chat: z.string().max(100).optional(),
           sortOrder: z.number().int().default(0),
+          visitSeconds: z.number().int().positive().optional(),
+          thumbnailUrl: z.string().max(500).optional(),
+          referralThreshold: z.number().int().positive().optional(),
+          repeatable: z.boolean().optional(),
+          cooldownHours: z.number().int().positive().optional(),
         })
         .parse(d),
   )
@@ -273,6 +283,11 @@ export const adminCreateTask = createServerFn({ method: "POST" })
       chat: data.chat ?? null,
       sort_order: data.sortOrder ?? 0,
       active: true,
+      visit_seconds: data.visitSeconds ?? null,
+      thumbnail_url: data.thumbnailUrl ?? null,
+      referral_threshold: data.referralThreshold ?? null,
+      repeatable: data.repeatable ?? false,
+      cooldown_hours: data.cooldownHours ?? null,
     });
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -287,10 +302,15 @@ export const adminUpdateTask = createServerFn({ method: "POST" })
       description?: string;
       url?: string;
       reward?: number;
-      kind?: "channel" | "external";
+      kind?: "channel" | "external" | "visit" | "video" | "referral_tier";
       chat?: string | null;
       active?: boolean;
       sortOrder?: number;
+      visitSeconds?: number | null;
+      thumbnailUrl?: string | null;
+      referralThreshold?: number | null;
+      repeatable?: boolean;
+      cooldownHours?: number | null;
     }) =>
       z
         .object({
@@ -300,10 +320,15 @@ export const adminUpdateTask = createServerFn({ method: "POST" })
           description: z.string().max(500).optional(),
           url: z.string().max(500).optional(),
           reward: z.number().int().nonnegative().optional(),
-          kind: z.enum(["channel", "external"]).optional(),
+          kind: z.enum(["channel", "external", "visit", "video", "referral_tier"]).optional(),
           chat: z.string().max(100).nullable().optional(),
           active: z.boolean().optional(),
           sortOrder: z.number().int().optional(),
+          visitSeconds: z.number().int().positive().nullable().optional(),
+          thumbnailUrl: z.string().max(500).nullable().optional(),
+          referralThreshold: z.number().int().positive().nullable().optional(),
+          repeatable: z.boolean().optional(),
+          cooldownHours: z.number().int().positive().nullable().optional(),
         })
         .parse(d),
   )
@@ -320,6 +345,11 @@ export const adminUpdateTask = createServerFn({ method: "POST" })
     if (data.chat !== undefined) patch.chat = data.chat;
     if (data.active !== undefined) patch.active = data.active;
     if (data.sortOrder !== undefined) patch.sort_order = data.sortOrder;
+    if (data.visitSeconds !== undefined) patch.visit_seconds = data.visitSeconds;
+    if (data.thumbnailUrl !== undefined) patch.thumbnail_url = data.thumbnailUrl;
+    if (data.referralThreshold !== undefined) patch.referral_threshold = data.referralThreshold;
+    if (data.repeatable !== undefined) patch.repeatable = data.repeatable;
+    if (data.cooldownHours !== undefined) patch.cooldown_hours = data.cooldownHours;
     const svcAny = svc as any;
     const { error } = await svcAny.from("tasks").update(patch).eq("id", data.id);
     if (error) throw new Error(error.message);

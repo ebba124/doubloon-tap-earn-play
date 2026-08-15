@@ -106,9 +106,19 @@ export interface TaskDef {
   description: string;
   url: string;
   reward: number;
-  kind: "channel" | "external";
+  kind: "channel" | "external" | "visit" | "video" | "referral_tier";
   /** Telegram chat @username — membership is verified server-side before payout. */
   chat?: string;
+  /** For "visit"/"video": seconds the player must stay before claiming. */
+  visitSeconds?: number;
+  /** For "video": thumbnail image shown on the task card. */
+  thumbnailUrl?: string;
+  /** For "referral_tier": number of referrals required to unlock. */
+  referralThreshold?: number;
+  /** If true, task resets after cooldownHours instead of being one-time. */
+  repeatable?: boolean;
+  /** For repeatable tasks: hours before the task can be claimed again. */
+  cooldownHours?: number;
 }
 
 let _tasksCache: { data: TaskDef[]; at: number } | null = null;
@@ -138,6 +148,11 @@ export async function getTasks(svc: any): Promise<TaskDef[]> {
     reward: Number(row.reward),
     kind: row.kind,
     chat: row.chat ?? undefined,
+    visitSeconds: row.visit_seconds ?? undefined,
+    thumbnailUrl: row.thumbnail_url ?? undefined,
+    referralThreshold: row.referral_threshold ?? undefined,
+    repeatable: Boolean(row.repeatable),
+    cooldownHours: row.cooldown_hours ?? undefined,
   }));
   _tasksCache = { data: tasks, at: Date.now() };
   return tasks;

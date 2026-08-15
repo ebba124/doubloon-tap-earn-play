@@ -350,9 +350,14 @@ function TasksSection() {
     description: "",
     url: "",
     reward: 1000,
-    kind: "channel" as "channel" | "external",
+    kind: "channel" as "channel" | "external" | "visit" | "video" | "referral_tier",
     chat: "",
     sortOrder: 0,
+    visitSeconds: 15,
+    thumbnailUrl: "",
+    referralThreshold: 5,
+    repeatable: false,
+    cooldownHours: 24,
   });
 
   const create = useMutation({
@@ -368,10 +373,29 @@ function TasksSection() {
           kind: form.kind,
           chat: form.chat || undefined,
           sortOrder: Number(form.sortOrder),
+          visitSeconds: form.kind === "visit" || form.kind === "video" ? Number(form.visitSeconds) : undefined,
+          thumbnailUrl: form.kind === "video" ? form.thumbnailUrl || undefined : undefined,
+          referralThreshold: form.kind === "referral_tier" ? Number(form.referralThreshold) : undefined,
+          repeatable: form.repeatable,
+          cooldownHours: form.repeatable ? Number(form.cooldownHours) : undefined,
         },
       }),
     onSuccess: () => {
-      setForm({ id: "", name: "", description: "", url: "", reward: 1000, kind: "channel", chat: "", sortOrder: 0 });
+      setForm({
+        id: "",
+        name: "",
+        description: "",
+        url: "",
+        reward: 1000,
+        kind: "channel",
+        chat: "",
+        sortOrder: 0,
+        visitSeconds: 15,
+        thumbnailUrl: "",
+        referralThreshold: 5,
+        repeatable: false,
+        cooldownHours: 24,
+      });
       q.refetch();
     },
   });
@@ -427,10 +451,18 @@ function TasksSection() {
           <select
             className="ghost-btn text-left flex-1"
             value={form.kind}
-            onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as "channel" | "external" }))}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                kind: e.target.value as "channel" | "external" | "visit" | "video" | "referral_tier",
+              }))
+            }
           >
             <option value="channel">channel</option>
             <option value="external">external</option>
+            <option value="visit">visit (timed link)</option>
+            <option value="video">video (thumbnail + timed link)</option>
+            <option value="referral_tier">referral_tier</option>
           </select>
         </div>
         {form.kind === "channel" && (
@@ -439,6 +471,49 @@ function TasksSection() {
             placeholder="Chat @username (for membership check)"
             value={form.chat}
             onChange={(e) => setForm((f) => ({ ...f, chat: e.target.value }))}
+          />
+        )}
+        {(form.kind === "visit" || form.kind === "video") && (
+          <input
+            className="ghost-btn text-left"
+            type="number"
+            placeholder="Seconds to wait before claim"
+            value={form.visitSeconds}
+            onChange={(e) => setForm((f) => ({ ...f, visitSeconds: Number(e.target.value) }))}
+          />
+        )}
+        {form.kind === "video" && (
+          <input
+            className="ghost-btn text-left"
+            placeholder="Thumbnail image URL"
+            value={form.thumbnailUrl}
+            onChange={(e) => setForm((f) => ({ ...f, thumbnailUrl: e.target.value }))}
+          />
+        )}
+        {form.kind === "referral_tier" && (
+          <input
+            className="ghost-btn text-left"
+            type="number"
+            placeholder="Friends required"
+            value={form.referralThreshold}
+            onChange={(e) => setForm((f) => ({ ...f, referralThreshold: Number(e.target.value) }))}
+          />
+        )}
+        <label className="flex items-center gap-2 text-sm px-1">
+          <input
+            type="checkbox"
+            checked={form.repeatable}
+            onChange={(e) => setForm((f) => ({ ...f, repeatable: e.target.checked }))}
+          />
+          Repeatable (resets after cooldown)
+        </label>
+        {form.repeatable && (
+          <input
+            className="ghost-btn text-left"
+            type="number"
+            placeholder="Cooldown hours (e.g. 24 for daily)"
+            value={form.cooldownHours}
+            onChange={(e) => setForm((f) => ({ ...f, cooldownHours: Number(e.target.value) }))}
           />
         )}
         <input
